@@ -10,8 +10,8 @@ Each waypoint contains:
 - y in NED
 - vx in NED
 - vy in NED
-- magnitude of laeral acceleration in NED
-- maginutude of jerk in NED
+- magnitude of laeral acceleration
+- maginutude of jerk
 - timestamp 
 
 The architecture:
