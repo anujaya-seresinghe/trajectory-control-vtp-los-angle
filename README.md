@@ -15,7 +15,7 @@ Each waypoint contains:
 - timestamp 
 
 The architecture:
-Trajectory manager is a PX4 module running with the flight mode to receieve incoming trajectory setpoints and determine the virtual target point based on the position of the UAV. This is implemented as a separate module to reduce the load on the flight mode itself which performs tasks related to the sliding mode controller.
+Trajectory manager is a PX4 module running with the trajectory flight mode to receive incoming trajectory setpoints and determine the virtual target point based on the position of the UAV. This is implemented as a separate module to reduce the load on the flight mode itself which performs tasks related to the sliding mode controller.
 
 ![Architecture](docs/img/architecture.png)
 
