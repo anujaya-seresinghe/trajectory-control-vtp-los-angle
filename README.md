@@ -1,3 +1,8 @@
+Trajectory controller based on the approach presented in [Chen et al. (2019)](https://doi.org/10.1016/j.ast.2019.02.034) with the assumption that the virtual target is not moving independent of the UAV. 
+
+PX4 flight mode is created for quadcopters since fixed wing versions do not accept acceleration setpoints.  
+
+
 ## Setting up
 Run the PX4 docker container and inside the container run PX4 on Gazebo x500 SITL. Perform a takeoff and set the flight mode to Trajectory and send the waypoints.
 
