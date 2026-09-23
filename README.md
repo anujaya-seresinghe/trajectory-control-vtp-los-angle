@@ -1,6 +1,6 @@
 Trajectory controller based on the approach presented in [Chen et al. (2019)](https://doi.org/10.1016/j.ast.2019.02.034) with the assumption that the virtual target is not moving independent of the UAV. 
 
-The controller uses a terminal non-singular sliding mode controller with lateral acceleration as the output. 
+The implementation uses a terminal non-singular sliding mode controller with lateral acceleration as the output. 
 
 PX4 flight mode is created for quadcopters since fixed wing versions do not accept acceleration setpoints. A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies how many waypoints the trajectory contains and TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
 
