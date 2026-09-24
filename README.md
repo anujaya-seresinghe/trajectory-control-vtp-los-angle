@@ -11,7 +11,7 @@ Each waypoint contains:
 - vx in NED
 - vy in NED
 - magnitude of laeral acceleration
-- maginutude of jerk
+- magnitude of jerk
 - timestamp 
 
 The architecture:
