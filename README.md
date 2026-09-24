@@ -23,7 +23,14 @@ Trajectory manager is a PX4 module running with the trajectory flight mode to re
 
 
 ## Setting up
-Run the PX4 docker container and inside the container run PX4 on Gazebo x500 SITL. Perform a takeoff and set the flight mode to Trajectory and send the waypoints.
+Build the PX4 docker container and inside the container:
+docker compose -f docker-compose-px4.yaml up -d --build
+docker exec -it px4_gazebo_container bash
+
+
+Run PX4 on Gazebo x500 SITL. Perform a takeoff and set the flight mode to Trajectory and send the waypoints.
+
+To watch the UAV's position live in 2D or 3D, run the web ground station. It connects to PX4 through a C++ MAVLink↔MQTT bridge. See [ground_station/README.md](ground_station/README.md).
 
 ## References
 

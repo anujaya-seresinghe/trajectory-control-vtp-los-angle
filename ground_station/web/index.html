@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UAV Ground Station</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">UAV Ground Station</div>
+
+      <form id="broker-form" class="broker">
+        <label for="broker-url">Broker</label>
+        <input id="broker-url" type="text" spellcheck="false" autocomplete="off" />
+        <button type="submit">Connect</button>
+      </form>
+
+      <div class="status">
+        <span class="pill" id="st-broker" data-state="off">Broker</span>
+        <span class="pill" id="st-bridge" data-state="off">Bridge</span>
+        <span class="pill" id="st-vehicle" data-state="off">Vehicle</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="viewport">
+        <div class="view-toolbar">
+          <div class="segmented" role="tablist" aria-label="View mode">
+            <button type="button" role="tab" data-view="2d" aria-selected="true">2D</button>
+            <button type="button" role="tab" data-view="3d" aria-selected="false">3D</button>
+          </div>
+          <div class="toolbar-actions">
+            <label class="check"><input type="checkbox" id="follow" checked /> Follow</label>
+            <button type="button" id="recenter">Recenter</button>
+            <button type="button" id="clear-trail">Clear trail</button>
+          </div>
+        </div>
+        <div class="canvas-host" id="view-2d"></div>
+        <div class="canvas-host" id="view-3d" hidden></div>
+        <div class="hint" id="view-hint">Drag to pan · scroll to zoom</div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-block" id="traj-block">
+          <div class="block-title">Trajectory</div>
+          <button type="button" id="traj-mode-btn" class="wide">Trajectory Flight Mode</button>
+          <p id="mode-status" class="note" aria-live="polite"></p>
+          <div class="spacer"></div>
+          <button type="button" id="plan-btn" class="primary wide">Plan trajectory</button>
+          <p id="plan-unavailable" class="note" hidden>Trajectory planning is only available in the 2D view.</p>
+
+          <form id="plan-editor" hidden novalidate>
+            <label class="field">
+              <span>ID</span>
+              <input id="traj-id" type="number" min="0" max="255" step="1" inputmode="numeric" placeholder="0–255" required />
+            </label>
+            <p class="note">
+              Click the map to add points. Drag a point to move it. Drag its square handles to change the curvature.
+              Right-click a point to delete it, or right-click a handle to make it automatic again.
+            </p>
+            <dl class="kv">
+              <dt>Control points</dt><dd id="p-anchors">0</dd>
+              <dt>Trajectory points</dt><dd id="p-points">0</dd>
+              <dt>Length</dt><dd id="p-length">—</dd>
+              <dt>Duration</dt><dd id="p-duration">—</dd>
+              <dt>Speed</dt><dd id="p-speed">—</dd>
+              <dt>Max |lateral accel.|</dt><dd id="p-at">—</dd>
+              <dt>Max |jerk|</dt><dd id="p-jt">—</dd>
+            </dl>
+            <div class="btn-row">
+              <button type="button" id="plan-undo">Undo</button>
+              <button type="button" id="plan-clear">Clear</button>
+              <button type="button" id="plan-cancel">Cancel</button>
+            </div>
+            <button type="submit" id="plan-finish" class="primary wide">Finish</button>
+            <p id="plan-error" class="error" role="alert"></p>
+          </form>
+
+          <p id="upload-status" class="note" aria-live="polite"></p>
+        </div>
+
+        <div class="panel-block">
+          <label for="vehicle-select" class="block-title">Vehicle</label>
+          <select id="vehicle-select" disabled>
+            <option>Waiting for telemetry…</option>
+          </select>
+          <dl class="kv">
+            <dt>Mode</dt><dd id="t-mode">—</dd>
+            <dt>Armed</dt><dd id="t-armed">—</dd>
+            <dt>Position rate</dt><dd id="t-rate">—</dd>
+          </dl>
+        </div>
+
+        <div class="panel-block">
+          <div class="block-title">Position (NED) <span class="unit">m</span></div>
+          <div class="triple">
+            <div><span>N</span><b id="t-x">—</b></div>
+            <div><span>E</span><b id="t-y">—</b></div>
+            <div><span>D</span><b id="t-z">—</b></div>
+          </div>
+          <dl class="kv">
+            <dt>Altitude</dt><dd id="t-alt">—</dd>
+            <dt>Distance from origin</dt><dd id="t-dist">—</dd>
+          </dl>
+        </div>
+
+        <div class="panel-block">
+          <div class="block-title">Velocity (NED) <span class="unit">m/s</span></div>
+          <div class="triple">
+            <div><span>vN</span><b id="t-vx">—</b></div>
+            <div><span>vE</span><b id="t-vy">—</b></div>
+            <div><span>vD</span><b id="t-vz">—</b></div>
+          </div>
+          <dl class="kv">
+            <dt>Ground speed</dt><dd id="t-gs">—</dd>
+            <dt>Course</dt><dd id="t-course">—</dd>
+          </dl>
+        </div>
+
+        <div class="panel-block">
+          <div class="block-title">Attitude <span class="unit">deg</span></div>
+          <div class="triple">
+            <div><span>Roll</span><b id="t-roll">—</b></div>
+            <div><span>Pitch</span><b id="t-pitch">—</b></div>
+            <div><span>Yaw</span><b id="t-yaw">—</b></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

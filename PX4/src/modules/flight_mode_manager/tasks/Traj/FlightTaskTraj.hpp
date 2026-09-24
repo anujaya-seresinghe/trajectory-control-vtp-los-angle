@@ -32,7 +32,7 @@ public:
 //subcribe to trajectory initiator, trajectory
 private:
 	float _alpha = 1.4f;
-	float _beta = 0.5f;
+	float _beta = 0.2f;
 	float _epsilon = 0.1f;
 
 

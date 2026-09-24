@@ -89,7 +89,7 @@ class TrajectoryManager : public px4::ScheduledWorkItem
         bool index_exists(uint16_t index);
 
 
-	uint16_t _r_star = 30;
+	uint16_t _r_star = 15;
 
 
 };

@@ -67,9 +67,9 @@ bool FlightTaskTraj::update()
 
         // 4. Equivalent lateral acceleration (a_m_eq)
         float cos_m = cosf(lambda - gamma_m);
-        //if (std::abs(cos_m) < 0.05f) {
-        //    cos_m = math::signNoZero(cos_m) * 0.05f; // Prevent singularity division
-       // }
+        if (std::abs(cos_m) < 0.05f) {
+            cos_m = math::signNoZero(cos_m) * 0.05f; // Prevent singularity division
+        }
 
         float a_m_eq = 0.0f;
         // if (r_dot <= 0.0f) {
@@ -102,10 +102,16 @@ bool FlightTaskTraj::update()
         //float a_m = math::constrain(a_m_eq + a_m_disc, -2.0f, 2.0f);
 
         // 5. Longitudinal acceleration
-        _v_m_setpoint = v_t * (r / static_cast<float>(_r_star));
-	//float a_long = (v_t - v_m) * _k_long;
-	float a_long = ((v_t * r/_r_star) - v_m) * _k_long;
+        //_v_m_setpoint = v_t * (r / static_cast<float>(_r_star));
+	float a_long = (v_t - v_m) * _k_long;
+	//float a_long = ((v_t * r/_r_star) - v_m) * _k_long;
         //float a_long = math::constrain((v_t - v_m) * _k_long, -0.5f, 0.5f);
+        // FlightTaskTraj.hpp
+        float _z_hold{NAN};
+
+        // FlightTaskTraj::activate(), after FlightTask::activate(last_setpoint)
+        _z_hold = _position(2);
+        _position_setpoint(2) = _z_hold;
 
         // 6. Project acceleration vector directly into inertial NED frame
         float ax_ned = a_long * cosf(gamma_m) - a_m * sinf(gamma_m);
@@ -114,6 +120,8 @@ bool FlightTaskTraj::update()
         _acceleration_setpoint(0) = ax_ned;
         _acceleration_setpoint(1) = ay_ned;
         _acceleration_setpoint(2) = 0.0f;
+
+        _position_setpoint(2) = _z_hold;
 
 	//_velocity_setpoint(3) = 0.0f;
 

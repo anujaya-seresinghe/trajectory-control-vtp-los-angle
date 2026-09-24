@@ -20,7 +20,7 @@ WORKDIR /app
 # Clone repo, checkout the exact commit hash, and update submodules
 RUN git clone https://github.com/PX4/PX4-Autopilot.git /app/PX4-Autopilot \
     && cd /app/PX4-Autopilot \
-    && git checkout adc5a53b88 \
+    && git checkout ec1c6a4901 \
     && git submodule update --init --recursive
 
 WORKDIR /app/PX4-Autopilot

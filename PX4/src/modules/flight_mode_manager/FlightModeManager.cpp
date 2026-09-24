@@ -176,7 +176,6 @@ void FlightModeManager::start_flight_task()
 
 	// trajectory flight mode
 		if (_vehicle_status_sub.get().nav_state == vehicle_status_s::NAVIGATION_STATE_TRAJ) {
-			PX4_INFO("mavlink command got through");
 		found_some_task = true;
 		FlightTaskError error = FlightTaskError::InvalidTask;
 

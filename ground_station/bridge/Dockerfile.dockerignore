@@ -1,0 +1,4 @@
+*
+!libraries/mavlink
+!ground_station/bridge
+ground_station/bridge/build

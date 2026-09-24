@@ -1,0 +1,49 @@
+# Ground station: MQTT broker + MAVLink<->MQTT bridge + web app.
+#
+#   docker compose -f docker-compose-gcs.yaml up -d --build
+#   open http://localhost:8080
+#
+# Ports can be changed with environment variables (or a .env file), e.g. when a system
+# mosquitto already uses 1883:
+#   MQTT_PORT=11883 MQTT_WS_PORT=19001 docker compose -f docker-compose-gcs.yaml up -d --build
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: gcs_mqtt_broker
+    ports:
+      - "${MQTT_PORT:-1883}:1883"      # MQTT TCP (bridge)
+      - "${MQTT_WS_PORT:-9001}:9001"   # MQTT over WebSockets (web app)
+    volumes:
+      - ./configs/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+  bridge:
+    build:
+      context: .
+      dockerfile: ground_station/bridge/Dockerfile
+    container_name: gcs_bridge
+    # Host networking so the bridge sees PX4 SITL's UDP traffic (the PX4 container is also host-networked)
+    network_mode: host
+    command:
+      - --mqtt-host
+      - localhost
+      - --mqtt-port
+      - "${MQTT_PORT:-1883}"
+      - --udp-listen
+      - "${MAVLINK_UDP_LISTEN:-14540}"
+      - --udp-target
+      - "${MAVLINK_UDP_TARGET:-127.0.0.1:14580}"
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ground_station/web
+      args:
+        VITE_MQTT_WS_PORT: "${MQTT_WS_PORT:-9001}"
+    container_name: gcs_web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    restart: unless-stopped

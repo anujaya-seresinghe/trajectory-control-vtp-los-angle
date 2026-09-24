@@ -58,6 +58,13 @@ void TrajectoryManager::update()
     // initiation
 
     _vehicle_local_position_sub.update(&_vehicle_local_position);
+	continuous_trajectory_initiate_s init;
+if (_continuous_trajectory_initiate_sub.update(&init)) {
+    reset();
+    _traj_id = init.id;
+    _no_of_wps = init.no_of_waypoints;
+	PX4_INFO("trajectory initiated, no_of_wps:%u", _no_of_wps);
+}
 
 
 
@@ -75,11 +82,12 @@ void TrajectoryManager::update()
 	    point->t = continuous_trajectory_setpoint.t;
             wp_list.add(point);
             _current_wp_count++;
+			PX4_INFO("waypoint received, count; %u", _current_wp_count);
 
 
     }
 
-    if (_current_wp_count == _no_of_wps) {
+    if (_no_of_wps > 0 && _current_wp_count == _no_of_wps) {
 	if (!_trajectory_started) {
             _traj_start_time = hrt_absolute_time();
             _trajectory_started = true;
@@ -121,7 +129,7 @@ void TrajectoryManager::update()
 
 
 
-		if (point->index < _current_wp_index || point->index > _current_wp_index + 20) {
+		if (point->index < _current_wp_index || point->index > _current_wp_index + 100) {
 			continue;
 		}
 

@@ -1,0 +1,52 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="pZLu4XnLz3FDIoiPPf4G">
+    <mxGraphModel dx="945" dy="575" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#003300;strokeColor=#99FF33;" value="" vertex="1">
+          <mxGeometry height="230" width="480" x="160" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#006666;" value="Trajectory&amp;nbsp; Flight Mode" vertex="1">
+          <mxGeometry height="70" width="120" x="180" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#006666;" value="Trajectory Manager" vertex="1">
+          <mxGeometry height="70" width="120" x="180" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 36px;&quot;&gt;PX4&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="560" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#006666;" value="MAVLink Interface" vertex="1">
+          <mxGeometry height="70" width="120" x="425" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-8" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;fillColor=#80FF00;strokeColor=#007FFF;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="480" y="450" as="sourcePoint" />
+            <mxPoint x="480" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-9" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;" value="Trajectory initiate and setpoint MAVLink messages" vertex="1">
+          <mxGeometry height="30" width="165" x="490" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-10" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;fillColor=#80FF00;strokeColor=#007FFF;entryX=1.008;entryY=0.497;entryDx=0;entryDy=0;entryPerimeter=0;" target="HnOFv6jA1f9vyPZTcr7k-4" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="425" y="304.94" as="sourcePoint" />
+            <mxPoint x="315" y="304.94" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-11" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;" value="Trajectory initiate and setpoints as uORBs" vertex="1">
+          <mxGeometry height="30" width="115" x="310" y="316" as="geometry" />
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-12" edge="1" parent="1" source="HnOFv6jA1f9vyPZTcr7k-4" style="endArrow=classic;html=1;rounded=0;fillColor=#80FF00;strokeColor=#007FFF;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="239.76" y="320" as="sourcePoint" />
+            <mxPoint x="239.76" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HnOFv6jA1f9vyPZTcr7k-13" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;rounded=0;" value="Selected Virtual Target" vertex="1">
+          <mxGeometry height="30" width="90" x="250" y="225" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
