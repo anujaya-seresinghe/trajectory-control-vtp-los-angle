@@ -32,6 +32,26 @@ Run PX4 on Gazebo x500 SITL. Perform a takeoff and set the flight mode to Trajec
 
 To watch the UAV's position live in 2D or 3D, run the web ground station. It connects to PX4 through a C++ MAVLink↔MQTT bridge. See [ground_station/README.md](ground_station/README.md).
 
+For a VTOL in fixed-wing flight, the same guidance runs as a ROS 2 external mode, with no PX4 changes. See [ros2/README.md](ros2/README.md).
+
+## Quick start: SITL + ground station in one command
+
+```bash
+./run_sim.sh                # multicopter (Gazebo x500, headless) + web GCS
+./run_sim.sh --vtol         # standard VTOL (Gazebo, headless) + web GCS + ROS 2 fixed-wing Trajectory mode
+./run_sim.sh --vtol --sih   # the same with PX4's lightweight built-in simulator instead of Gazebo
+./run_sim.sh stop           # stop PX4 SITL, the GCS and (if running) the ROS 2 mode; containers are kept
+```
+
+Everything runs **detached**: the containers with `docker compose up -d`, and PX4 SITL as a daemon in the background. The script returns once PX4 reports ready for takeoff and prints the web GCS address (`http://localhost:<WEB_PORT>`, 8080 or the port set in `.env`). While it runs:
+
+```bash
+./run_sim.sh logs                     # follow PX4's output
+./run_sim.sh px4 commander status     # any PX4 shell command (commander, listener, param, ...)
+```
+
+Gazebo runs headless by default; add `--gui` to see its window. `--build` rebuilds the images after code changes.
+
 ## References
 
 Chen, Q., Wang, X., Yang, J., & Wang, Z. (2019). Trajectory-following guidance based on a virtual target and an angle constraint. Aerospace Science and Technology, 87, 448–458. https://doi.org/10.1016/j.ast.2019.02.034

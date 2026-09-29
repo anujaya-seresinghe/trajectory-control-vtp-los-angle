@@ -4,6 +4,7 @@
 
 FlightTaskTraj::FlightTaskTraj()
 {
+  _trajectory_manager.setRStar(_param_traj_r_star.get());
   _trajectory_manager.Start();
   PX4_INFO("FlightTaskTraj called!"); // report if activation was successful
 }
@@ -25,7 +26,18 @@ bool FlightTaskTraj::activate(const trajectory_setpoint_s &last_setpoint)
 
 bool FlightTaskTraj::update()
 {
+     // Parameters are refreshed by FlightModeManager on parameter_update; keep the manager's r* identical
+     _trajectory_manager.setRStar(_param_traj_r_star.get());
+
      if (_continuous_trajectory_output_sub.updated()) {
+
+        const float alpha = _param_traj_smc_alpha.get();
+        const float beta = _param_traj_smc_beta.get();
+        const float epsilon = _param_traj_smc_eps.get();
+        const float r_star = _param_traj_r_star.get();
+        const float k_long = _param_traj_k_long.get();
+        const float a_m_max = _param_traj_a_m_max.get();
+        const float a_long_max = _param_traj_a_long_max.get();
 
 
 
@@ -42,10 +54,10 @@ bool FlightTaskTraj::update()
         float j_t = _continuous_trajectory_output.j_t;
 
         // 1. Calculate desired LOS angle with safety clamping
-       // float sin_arg = (a_t / (2.0f * v_t * v_t)) * _r_star;
+       // float sin_arg = (a_t / (2.0f * v_t * v_t)) * r_star;
         //sin_arg = math::constrain(sin_arg, -1.0f, 1.0f);
         //float lambda_d = gamma_t - asinf(sin_arg);
-	float lambda_d = gamma_t - asinf((a_t / (2.0f * v_t * v_t)) * _r_star);
+	float lambda_d = gamma_t - asinf((a_t / (2.0f * v_t * v_t)) * r_star);
 
         // 2. Kinematic rates
         float lambda_dot = (1.0f / r) * ((-v_t * sinf(lambda - gamma_t)) + (v_m * sinf(lambda - gamma_m)));
@@ -60,10 +72,10 @@ bool FlightTaskTraj::update()
         _x_2 = lambda_dot - lambda_d_dot;
 
         float sign_x2 = math::signNoZero(_x_2);
-        float x_2_pow_alpha = sign_x2 * powf(std::abs(_x_2), _alpha);
-        float x_2_pow_two_minus_alpha = sign_x2 * powf(std::abs(_x_2), 2.0f - _alpha);
+        float x_2_pow_alpha = sign_x2 * powf(std::abs(_x_2), alpha);
+        float x_2_pow_two_minus_alpha = sign_x2 * powf(std::abs(_x_2), 2.0f - alpha);
 
-        _s = _x_1 + (1.0f / _beta) * x_2_pow_alpha;
+        _s = _x_1 + (1.0f / beta) * x_2_pow_alpha;
 
         // 4. Equivalent lateral acceleration (a_m_eq)
         float cos_m = cosf(lambda - gamma_m);
@@ -72,40 +84,40 @@ bool FlightTaskTraj::update()
         }
 
         float a_m_eq = 0.0f;
-        // if (r_dot <= 0.0f) {
-        //     a_m_eq = (1.0f / cos_m) * (-2.0f * r_dot * lambda_dot + a_t * cosf(lambda - gamma_t) 
-        //              + ((_r_star * v_m) / (r * r)) * r_dot * sinf(lambda - gamma_t) 
-        //              - (j_t / v_t) * r - ((_r_star * v_m) / (r * v_t * v_t)) * a_t * r_dot 
-        //              + ((r * _beta) / _alpha) * x_2_pow_two_minus_alpha);
-        // } else {
-        //     a_m_eq = (1.0f / std::abs(cos_m)) * (2.0f * std::abs(r_dot) * lambda_dot + a_t * cosf(lambda - gamma_t) 
-        //              + ((_r_star * v_m) / (r * r)) * std::abs(r_dot) * sinf(lambda - gamma_t) 
-        //              - (j_t / v_t) * r + ((_r_star * v_m) / (r * v_t * v_t)) * a_t * std::abs(r_dot) 
-        //              + ((r * _beta) / _alpha) * x_2_pow_two_minus_alpha);
-        // }
-
-
-	if (r_dot <= 0.0f) {
+        if (r_dot <= 0.0f) {
             a_m_eq = (1.0f / cos_m) * (-2.0f * r_dot * lambda_dot + a_t * cosf(lambda - gamma_t) 
-                     + ((_r_star * v_m) / (r * r)) * r_dot * sinf(lambda - gamma_t) 
-                     - (j_t / v_t) * r - ((j_t * _r_star * r) / (2 * v_t * v_t)) 
-                     + ((r * _beta) / _alpha) * x_2_pow_two_minus_alpha);
+                     + ((r_star * v_m) / (r * r)) * r_dot * sinf(lambda - gamma_t) 
+                     - (j_t / v_t) * r - ((r_star * v_m) / (r * v_t * v_t)) * a_t * r_dot 
+                     + ((r * beta) / alpha) * x_2_pow_two_minus_alpha);
         } else {
             a_m_eq = (1.0f / std::abs(cos_m)) * (2.0f * std::abs(r_dot) * lambda_dot + a_t * cosf(lambda - gamma_t) 
-                     + ((_r_star * v_m) / (r * r)) * std::abs(r_dot) * sinf(lambda - gamma_t) 
-                     - (j_t / v_t) * r + ((j_t * _r_star * r) / (2 * v_t * v_t)) 
-                     + ((r * _beta) / _alpha) * x_2_pow_two_minus_alpha);
+                     + ((r_star * v_m) / (r * r)) * std::abs(r_dot) * sinf(lambda - gamma_t) 
+                     - (j_t / v_t) * r + ((r_star * v_m) / (r * v_t * v_t)) * a_t * std::abs(r_dot) 
+                     + ((r * beta) / alpha) * x_2_pow_two_minus_alpha);
         }
 
-        float a_m_disc = (1.0f / cos_m) * _epsilon * math::signNoZero(_s);
-	float a_m = a_m_eq + a_m_disc;
-        //float a_m = math::constrain(a_m_eq + a_m_disc, -2.0f, 2.0f);
+
+	// if (r_dot <= 0.0f) {
+        //     a_m_eq = (1.0f / cos_m) * (-2.0f * r_dot * lambda_dot + a_t * cosf(lambda - gamma_t) 
+        //              + ((r_star * v_m) / (r * r)) * r_dot * sinf(lambda - gamma_t) 
+        //              - (j_t / v_t) * r - ((j_t * r_star * r) / (2 * v_t * v_t)) 
+        //              + ((r * beta) / alpha) * x_2_pow_two_minus_alpha);
+        // } else {
+        //     a_m_eq = (1.0f / std::abs(cos_m)) * (2.0f * std::abs(r_dot) * lambda_dot + a_t * cosf(lambda - gamma_t) 
+        //              + ((r_star * v_m) / (r * r)) * std::abs(r_dot) * sinf(lambda - gamma_t) 
+        //              - (j_t / v_t) * r + ((j_t * r_star * r) / (2 * v_t * v_t)) 
+        //              + ((r * beta) / alpha) * x_2_pow_two_minus_alpha);
+        // }
+
+        float a_m_disc = (1.0f / cos_m) * epsilon * math::signNoZero(_s);
+	//float a_m = a_m_eq + a_m_disc;
+        float a_m = math::constrain(a_m_eq + a_m_disc, -a_m_max, a_m_max);
 
         // 5. Longitudinal acceleration
-        //_v_m_setpoint = v_t * (r / static_cast<float>(_r_star));
-	float a_long = (v_t - v_m) * _k_long;
-	//float a_long = ((v_t * r/_r_star) - v_m) * _k_long;
-        //float a_long = math::constrain((v_t - v_m) * _k_long, -0.5f, 0.5f);
+        //_v_m_setpoint = v_t * (r / static_cast<float>(r_star));
+	//float a_long = (v_t - v_m) * k_long;
+	//float a_long = ((v_t * r/r_star) - v_m) * k_long;
+        float a_long = math::constrain((v_t - v_m) * k_long, -a_long_max, a_long_max);
         // FlightTaskTraj.hpp
         float _z_hold{NAN};
 

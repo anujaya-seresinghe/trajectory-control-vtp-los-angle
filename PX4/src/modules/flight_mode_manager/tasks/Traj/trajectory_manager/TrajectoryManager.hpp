@@ -40,6 +40,7 @@ class TrajectoryManager : public px4::ScheduledWorkItem
 	~TrajectoryManager();
         bool Start();
         void Stop();
+        void setRStar(float r_star) { _r_star = r_star; } // set from TRAJ_R_STAR by FlightTaskTraj
 
     private:
         void Run() override;
@@ -89,7 +90,7 @@ class TrajectoryManager : public px4::ScheduledWorkItem
         bool index_exists(uint16_t index);
 
 
-	uint16_t _r_star = 15;
+	float _r_star{15.f};
 
 
 };

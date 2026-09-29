@@ -36,7 +36,7 @@ px4_add_library(FlightTaskTraj
 	FlightTaskTraj.cpp
 )
 
-#set_property(GLOBAL APPEND PROPERTY PX4_MODULE_CONFIG_FILES ${CMAKE_CURRENT_SOURCE_DIR}/flight_task_orbit_params.yaml)
+set_property(GLOBAL APPEND PROPERTY PX4_MODULE_CONFIG_FILES ${CMAKE_CURRENT_SOURCE_DIR}/flight_task_traj_params.yaml)
 
 target_link_libraries(FlightTaskTraj PUBLIC FlightTask trajectory_manager)
 target_include_directories(FlightTaskTraj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

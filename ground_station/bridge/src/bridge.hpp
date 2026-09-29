@@ -19,7 +19,7 @@ struct mosquitto_message;
 
 struct BridgeConfig {
 	// MQTT broker (see configs/mqtt/mosquitto.conf)
-	std::string mqtt_host{"localhost"};
+	std::string mqtt_host{"127.0.0.1"}; // not "localhost": libmosquitto may try IPv6 ::1 first
 	int mqtt_port{1883};
 	std::string topic_prefix{"uav"};
 
@@ -62,6 +62,18 @@ struct BridgeConfig {
  *   <prefix>/<sysid>/cmd/set_mode         JSON {"main_mode": n, "sub_mode": n} (PX4 custom mode)
  *                                         -> COMMAND_LONG MAV_CMD_DO_SET_MODE
  *   <prefix>/<sysid>/command_ack          JSON {"command","result"} from COMMAND_ACK
+ *   <prefix>/<sysid>/cmd/command_long     JSON {"command": n, "params": [p1..p7]} (null = NaN) -> COMMAND_LONG
+ *   <prefix>/<sysid>/cmd/command_int      JSON {"command": n, "frame": n, "params": [p1..p4], "x": int, "y": int, "z": f}
+ *                                         -> COMMAND_INT (x/y as degE7 for global frames; null = NaN / INT32_MAX)
+ *   <prefix>/<sysid>/global_position      JSON {"lat","lon","alt","relative_alt"} (deg, m AMSL, m) from GLOBAL_POSITION_INT
+ *   <prefix>/<sysid>/extended_sys_state   JSON {"vtol_state","landed_state"} from EXTENDED_SYS_STATE
+ *   <prefix>/<sysid>/available_mode       JSON {"index","number_modes","custom_mode","standard_mode","properties","name"}
+ *                                         from AVAILABLE_MODES (one per mode)
+ *   <prefix>/<sysid>/available_modes_monitor JSON {"seq"}: changes when modes are added/removed
+ *   <prefix>/<sysid>/statustext           JSON {"severity","text"} from STATUSTEXT (e.g. why arming was denied)
+ *   <prefix>/<sysid>/cmd/param_get        JSON {"names": ["TRAJ_R_STAR", ...]} -> PARAM_REQUEST_READ per name
+ *   <prefix>/<sysid>/cmd/param_set        JSON {"name": "TRAJ_R_STAR", "value": 30.0} -> PARAM_SET (float)
+ *   <prefix>/<sysid>/param                JSON {"name","value","type","index","count"} from PARAM_VALUE
  *
  * Bridge state
  *   bridge/status                         JSON, retained; last-will sets it offline
@@ -89,6 +101,10 @@ private:
 	void handleMqttTx(const uint8_t *data, size_t len);
 	void handleTrajectoryCommand(uint8_t sysid, const std::string &payload);
 	void handleSetModeCommand(uint8_t sysid, const std::string &payload);
+	void handleCommandLong(uint8_t sysid, const std::string &payload);
+	void handleCommandInt(uint8_t sysid, const std::string &payload);
+	void handleParamGetCommand(uint8_t sysid, const std::string &payload);
+	void handleParamSetCommand(uint8_t sysid, const std::string &payload);
 	void serviceUploadQueue();
 	void publishUploadStatus(uint8_t sysid, uint8_t id, const char *state, size_t sent, size_t total,
 				 const std::string &error = "");

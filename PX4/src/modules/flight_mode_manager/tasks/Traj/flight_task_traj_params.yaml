@@ -1,0 +1,74 @@
+module_name: FlightTaskTraj
+parameters:
+- group: Flight Task Trajectory
+  definitions:
+    TRAJ_SMC_ALPHA:
+      description:
+        short: Sliding mode exponent alpha
+        long: Exponent of the terminal non-singular sliding surface, 1 < alpha < 2.
+      type: float
+      default: 1.4
+      min: 1.01
+      max: 1.99
+      increment: 0.01
+      decimal: 2
+    TRAJ_SMC_BETA:
+      description:
+        short: Sliding mode gain beta
+      type: float
+      default: 0.12
+      min: 0.001
+      max: 10.0
+      increment: 0.01
+      decimal: 3
+    TRAJ_SMC_EPS:
+      description:
+        short: Sliding mode switching gain epsilon
+      type: float
+      default: 0.05
+      min: 0.0
+      max: 10.0
+      increment: 0.01
+      decimal: 3
+    TRAJ_R_STAR:
+      description:
+        short: Virtual target distance r*
+        long: Distance between the UAV and the virtual target point. Used by both the trajectory manager (virtual target selection) and the guidance law.
+      type: float
+      default: 15.0
+      unit: m
+      min: 1.0
+      max: 200.0
+      increment: 0.5
+      decimal: 1
+    TRAJ_K_LONG:
+      description:
+        short: Longitudinal speed gain
+      type: float
+      default: 0.5
+      min: 0.0
+      max: 10.0
+      increment: 0.05
+      decimal: 2
+    TRAJ_A_M_MAX:
+      description:
+        short: Lateral acceleration limit
+        long: The lateral (flight-path y) acceleration command a_m is limited to +/- this value.
+      type: float
+      default: 2.0
+      unit: m/s^2
+      min: 0.0
+      max: 20.0
+      increment: 0.1
+      decimal: 2
+    TRAJ_A_LONG_MAX:
+      description:
+        short: Longitudinal acceleration limit
+        long: The longitudinal (along velocity) acceleration command a_long is limited to +/- this value.
+      type: float
+      default: 0.3
+      unit: m/s^2
+      min: 0.0
+      max: 10.0
+      increment: 0.1
+      decimal: 2

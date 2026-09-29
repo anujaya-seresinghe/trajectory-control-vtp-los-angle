@@ -15,6 +15,14 @@ export class Vehicle {
     this.position = null; // {x, y, z, vx, vy, vz, time_boot_ms} in NED
     this.attitude = null; // {roll, pitch, yaw, ...} rad
     this.heartbeat = null;
+    this.global = null; // {lat, lon, alt, relative_alt} from GLOBAL_POSITION_INT
+    this.extState = null; // {vtol_state, landed_state} from EXTENDED_SYS_STATE
+    this.modes = new Map(); // PX4 custom_mode -> {name, index, number_modes, standard_mode, properties}
+    this.modesSeq = null; // AVAILABLE_MODES_MONITOR sequence
+    this.params = new Map(); // PX4 parameter name -> {value, type}
+    this.rosParams = new Map(); // ROS 2 fixed-wing mode parameters (PX4-style names) -> {value, type}
+    this.rosGuidance = null; // latest ros_guidance from the ROS 2 fixed-wing mode: {state, r, index, points, a_m, ...}
+    this.rosGuidanceAt = 0;
     this.lastPositionAt = 0;
     this.lastHeartbeatAt = 0;
     this.trail = []; // [[x, y, z], ...] NED
@@ -118,6 +126,49 @@ export class Telemetry extends EventTarget {
     return true;
   }
 
+  /** Send any COMMAND_LONG (params: up to 7 numbers, null = NaN); the ACK arrives as a 'command-ack' event. */
+  sendCommand(sysid, command, params = []) {
+    if (!this.client?.connected) return false;
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/command_long`, JSON.stringify({ command, params }), { qos: 1 });
+    return true;
+  }
+
+  /** Send a COMMAND_INT: params p1..p4 (null = NaN), x/y integers (degE7 in global frames), z float. */
+  sendCommandInt(sysid, command, frame, params, x, y, z = null) {
+    if (!this.client?.connected) return false;
+    const payload = JSON.stringify({ command, frame, params, x, y, z });
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/command_int`, payload, { qos: 1 });
+    return true;
+  }
+
+  /** Ask the vehicle for the current value of each named parameter (answers arrive as 'param' events). */
+  requestParams(sysid, names) {
+    if (!this.client?.connected) return false;
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/param_get`, JSON.stringify({ names }), { qos: 1 });
+    return true;
+  }
+
+  /** Set a float parameter; the vehicle confirms with the stored value as a 'param' event. */
+  setParam(sysid, name, value) {
+    if (!this.client?.connected) return false;
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/param_set`, JSON.stringify({ name, value }), { qos: 1 });
+    return true;
+  }
+
+  /** VTOL: read parameters of the ROS 2 fixed-wing Trajectory mode (answers arrive as 'ros-param' events). */
+  requestRosParams(sysid, names) {
+    if (!this.client?.connected) return false;
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/ros_param_get`, JSON.stringify({ names }), { qos: 1 });
+    return true;
+  }
+
+  /** VTOL: set a parameter of the ROS 2 mode; it answers with the stored value (and saves it to its params.yaml). */
+  setRosParam(sysid, name, value) {
+    if (!this.client?.connected) return false;
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/ros_param_set`, JSON.stringify({ name, value }), { qos: 1 });
+    return true;
+  }
+
   /** Send a raw, already-packed MAVLink frame to the vehicle through the bridge. */
   sendRawMavlink(bytes) {
     this.client?.publish(TOPIC_RAW_TX, bytes);
@@ -156,6 +207,43 @@ export class Telemetry extends EventTarget {
       case 'heartbeat':
         vehicle.heartbeat = data;
         vehicle.lastHeartbeatAt = performance.now();
+        break;
+      case 'param':
+        vehicle.params.set(data.name, { value: data.value, type: data.type });
+        this.dispatchEvent(new CustomEvent('param', { detail: { sysid, ...data } }));
+        break;
+      case 'global_position':
+        vehicle.global = data;
+        break;
+      case 'extended_sys_state':
+        vehicle.extState = data;
+        break;
+      case 'available_mode':
+        vehicle.modes.set(data.custom_mode, data);
+        this.dispatchEvent(new CustomEvent('modes', { detail: vehicle }));
+        break;
+      case 'available_modes_monitor':
+        // The set of modes changed (e.g. the ROS 2 mode registered): forget the old list and ask again
+        if (vehicle.modesSeq !== data.seq) {
+          const first = vehicle.modesSeq === null;
+          vehicle.modesSeq = data.seq;
+          if (!first) vehicle.modes.clear();
+          this.dispatchEvent(new CustomEvent('modes-changed', { detail: vehicle }));
+        }
+        break;
+      case 'ros_param':
+        vehicle.rosParams.set(data.name, { value: data.value, type: data.type });
+        this.dispatchEvent(new CustomEvent('ros-param', { detail: { sysid, ...data } }));
+        break;
+      case 'ros_guidance':
+        vehicle.rosGuidance = data;
+        vehicle.rosGuidanceAt = performance.now();
+        break;
+      case 'ros_trajectory_status':
+        this.dispatchEvent(new CustomEvent('ros-trajectory-status', { detail: { sysid, ...data } }));
+        break;
+      case 'statustext':
+        this.dispatchEvent(new CustomEvent('statustext', { detail: { sysid, ...data } }));
         break;
       case 'command_ack':
         this.dispatchEvent(new CustomEvent('command-ack', { detail: { sysid, ...data } }));

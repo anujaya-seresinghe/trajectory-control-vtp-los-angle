@@ -27,7 +27,7 @@ services:
     network_mode: host
     command:
       - --mqtt-host
-      - localhost
+      - 127.0.0.1
       - --mqtt-port
       - "${MQTT_PORT:-1883}"
       - --udp-listen

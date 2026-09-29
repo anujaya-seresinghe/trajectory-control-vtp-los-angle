@@ -1,5 +1,6 @@
 import { readSceneColors, onThemeChange } from './theme.js';
 import { SAMPLE_SPACING } from './trajectory.js';
+import { isVtol } from './px4.js';
 
 const HIT_RADIUS = 10; // [px] pick radius for anchors and handles
 
@@ -19,6 +20,7 @@ export class View2D {
     this.follow = true;
     this.plan = null; // TrajectoryPlan being edited, or null
     this.uploadedPath = null; // [{x, y}, ...] of the last uploaded trajectory
+    this.gotoTarget = null; // {n, e} of an active "Go here"
     this.colors = readSceneColors();
     onThemeChange(() => (this.colors = readSceneColors()));
 
@@ -35,6 +37,10 @@ export class View2D {
   setPlan(plan) {
     this.plan = plan;
     this.canvas.style.cursor = plan ? 'crosshair' : '';
+  }
+
+  setGotoTarget(target) {
+    this.gotoTarget = target;
   }
 
   setUploadedPath(points) {
@@ -81,6 +87,7 @@ export class View2D {
     this._drawGrid();
     this._drawOrigin();
     this._drawUploadedPath();
+    this._drawGotoTarget();
 
     for (const v of vehicles) {
       this._drawTrail(v, v === selected);
@@ -220,26 +227,13 @@ export class View2D {
     ctx.lineTo(vx, vy);
     ctx.stroke();
 
-    // Body: arrow pointing along heading. Canvas rotation is clockwise, same as NED yaw.
+    // Body along the heading. Canvas rotation is clockwise, same as NED yaw.
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(yaw);
     const s = isSelected ? 1 : 0.8;
-    ctx.fillStyle = colors.uav;
-    ctx.strokeStyle = colors.bg;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, -16 * s);
-    ctx.lineTo(10 * s, 11 * s);
-    ctx.lineTo(0, 6 * s);
-    ctx.lineTo(-10 * s, 11 * s);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.fill();
-    ctx.fillStyle = colors['uav-nose'];
-    ctx.beginPath();
-    ctx.arc(0, -10 * s, 2.5 * s, 0, Math.PI * 2);
-    ctx.fill();
+    if (isVtol(vehicle)) drawVtolIcon(ctx, colors, s);
+    else drawArrowIcon(ctx, colors, s);
     ctx.restore();
 
     // Label with system id and altitude
@@ -254,6 +248,25 @@ export class View2D {
     ctx.globalAlpha = 1;
     ctx.fillStyle = colors.uav;
     ctx.fillText(label, x + 23, y);
+  }
+
+  _drawGotoTarget() {
+    if (!this.gotoTarget) return;
+    const { ctx, colors } = this;
+    const [x, y] = this.toScreen(this.gotoTarget.n, this.gotoTarget.e);
+    ctx.strokeStyle = colors.velocity;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.moveTo(x - 14, y);
+    ctx.lineTo(x - 4, y);
+    ctx.moveTo(x + 4, y);
+    ctx.lineTo(x + 14, y);
+    ctx.moveTo(x, y - 14);
+    ctx.lineTo(x, y - 4);
+    ctx.moveTo(x, y + 4);
+    ctx.lineTo(x, y + 14);
+    ctx.stroke();
   }
 
   _drawUploadedPath() {
@@ -441,6 +454,7 @@ export class View2D {
     const planChanged = () => this.host.dispatchEvent(new CustomEvent('plan-changed', { bubbles: true }));
 
     this.canvas.addEventListener('pointerdown', (ev) => {
+      this.host.dispatchEvent(new CustomEvent('map-pointerdown', { bubbles: true }));
       if (ev.button !== 0) return;
       const [sx, sy] = local(ev);
       const hit = this._hitTest(sx, sy);
@@ -485,8 +499,14 @@ export class View2D {
 
     // Right-click: delete a point, or reset a handle to automatic
     this.canvas.addEventListener('contextmenu', (ev) => {
-      if (!this.plan) return;
       ev.preventDefault();
+      if (!this.plan) {
+        // Outside planning, right-click opens the map context popup ("Go here")
+        const [sx, sy] = local(ev);
+        const w = this.toWorld(sx, sy);
+        this.host.dispatchEvent(new CustomEvent('map-context', { bubbles: true, detail: { sx, sy, ...w } }));
+        return;
+      }
       const hit = this._hitTest(...local(ev));
       if (hit?.type === 'anchor') this.plan.remove(hit.index);
       else if (hit?.type === 'handle') this.plan.resetHandles(hit.index);
@@ -498,6 +518,7 @@ export class View2D {
       'wheel',
       (ev) => {
         ev.preventDefault();
+        this.host.dispatchEvent(new CustomEvent('map-pointerdown', { bubbles: true }));
         const [sx, sy] = local(ev);
         const before = this.toWorld(sx, sy);
         const factor = Math.exp(-ev.deltaY * 0.0015);
@@ -512,6 +533,67 @@ export class View2D {
       { passive: false },
     );
   }
+}
+
+/** Multicopter: arrow pointing along the heading (nose at -y). */
+function drawArrowIcon(ctx, colors, s) {
+  ctx.fillStyle = colors.uav;
+  ctx.strokeStyle = colors.bg;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -16 * s);
+  ctx.lineTo(10 * s, 11 * s);
+  ctx.lineTo(0, 6 * s);
+  ctx.lineTo(-10 * s, 11 * s);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fill();
+  ctx.fillStyle = colors['uav-nose'];
+  ctx.beginPath();
+  ctx.arc(0, -10 * s, 2.5 * s, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Standard VTOL (quadplane) seen from above: fuselage, wing, tail, two booms with four lift rotors (nose at -y). */
+function drawVtolIcon(ctx, colors, s) {
+  // Lift rotors, behind the airframe
+  ctx.fillStyle = colors.uav;
+  ctx.globalAlpha = 0.3;
+  for (const [rx, ry] of [[-10, -10], [10, -10], [-10, 11], [10, 11]]) {
+    ctx.beginPath();
+    ctx.arc(rx * s, ry * s, 5 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = colors.uav;
+  ctx.strokeStyle = colors.bg;
+  ctx.lineWidth = 1.5;
+  const rect = (x0, y0, w, h) => {
+    ctx.beginPath();
+    ctx.rect(x0 * s, y0 * s, w * s, h * s);
+    ctx.stroke();
+    ctx.fill();
+  };
+  rect(-11, -14, 2, 27); // booms
+  rect(9, -14, 2, 27);
+  rect(-20, -4, 40, 6); // wing
+  rect(-7, 11, 14, 3.5); // horizontal tail
+  // Fuselage with a pointed nose
+  ctx.beginPath();
+  ctx.moveTo(0, -18 * s);
+  ctx.lineTo(2.8 * s, -12 * s);
+  ctx.lineTo(2.8 * s, 15 * s);
+  ctx.lineTo(-2.8 * s, 15 * s);
+  ctx.lineTo(-2.8 * s, -12 * s);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fill();
+
+  ctx.fillStyle = colors['uav-nose'];
+  ctx.beginPath();
+  ctx.arc(0, -13 * s, 2 * s, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function formatMetres(m) {

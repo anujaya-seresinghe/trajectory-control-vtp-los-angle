@@ -1,0 +1,17 @@
+# ros2 run trajectory_mode_fw trajectory_mode_fw --ros-args --params-file <this file>
+trajectory_mode_fw:
+  ros__parameters:
+    # Guidance (same meaning and defaults as the PX4 TRAJ_* parameters of the internal mode)
+    traj_smc_alpha: 1.4
+    traj_smc_beta: 0.5
+    traj_smc_eps: 0.1
+    traj_r_star: 30.0        # [m]
+    traj_k_long: 0.5
+    traj_a_m_max: 8.0        # [m/s^2] lateral acceleration limit (PX4 also limits it to tan(FW_R_LIM)*g)
+    traj_a_long_max: 2.0     # [m/s^2]
+    traj_search_window: 100  # indices ahead of the current virtual target
+    # Trajectory input: the ground station publishes on <topic_prefix>/<sysid>/cmd/trajectory
+    mqtt_host: 127.0.0.1     # not "localhost": libmosquitto tries IPv6 ::1 first, the broker listens on IPv4
+    mqtt_port: 1883
+    topic_prefix: uav
+    sysid: 1

@@ -36,15 +36,38 @@
             <button type="button" id="clear-trail">Clear trail</button>
           </div>
         </div>
-        <div class="canvas-host" id="view-2d"></div>
+        <div class="canvas-host" id="view-2d">
+          <div class="map-popup" id="map-popup" role="dialog" aria-label="Map point" hidden>
+            <div class="map-popup-coords" id="map-popup-coords"></div>
+            <button type="button" id="goto-btn" class="primary">Go here</button>
+            <p class="map-popup-status" id="map-popup-status" aria-live="polite"></p>
+          </div>
+        </div>
         <div class="canvas-host" id="view-3d" hidden></div>
         <div class="hint" id="view-hint">Drag to pan · scroll to zoom</div>
       </section>
 
       <aside class="panel">
+        <div class="panel-block" id="takeoff-block">
+          <div class="block-title">Takeoff</div>
+          <div class="takeoff-row">
+            <label class="inline-field">
+              <span>Altitude</span>
+              <input id="takeoff-alt" type="number" min="1" max="100" step="0.5" inputmode="decimal" value="2.5" />
+              <span class="unit">m</span>
+            </label>
+            <button type="button" id="takeoff-btn" class="primary">Takeoff</button>
+          </div>
+          <button type="button" id="fw-btn" class="wide vtol-only" hidden>Fixed-wing</button>
+          <p id="takeoff-status" class="note" aria-live="polite"></p>
+        </div>
+
         <div class="panel-block" id="traj-block">
           <div class="block-title">Trajectory</div>
-          <button type="button" id="traj-mode-btn" class="wide">Trajectory Flight Mode</button>
+          <div class="btn-row tight">
+            <button type="button" id="traj-mode-btn">Trajectory Flight Mode</button>
+            <button type="button" id="hold-btn">Exit to Hold</button>
+          </div>
           <p id="mode-status" class="note" aria-live="polite"></p>
           <div class="spacer"></div>
           <button type="button" id="plan-btn" class="primary wide">Plan trajectory</button>
@@ -53,11 +76,12 @@
           <form id="plan-editor" hidden novalidate>
             <label class="field">
               <span>ID</span>
-              <input id="traj-id" type="number" min="0" max="255" step="1" inputmode="numeric" placeholder="0–255" required />
+              <input id="traj-id" type="number" min="0" max="255" step="1" inputmode="numeric" placeholder="0–255" value="1" required />
             </label>
             <p class="note">
               Click the map to add points. Drag a point to move it. Drag its square handles to change the curvature.
               Right-click a point to delete it, or right-click a handle to make it automatic again.
+              <span id="plan-hold-note">The UAV is in Trajectory mode and brakes to a hover ("stop and wait") until you press Finish.</span>
             </p>
             <dl class="kv">
               <dt>Control points</dt><dd id="p-anchors">0</dd>
@@ -80,6 +104,18 @@
           <p id="upload-status" class="note" aria-live="polite"></p>
         </div>
 
+        <div class="panel-block" id="params-block">
+          <div class="block-title">Controller parameters <span class="unit" id="params-source">(PX4)</span></div>
+          <form id="params-form" novalidate>
+            <div id="param-rows" class="param-rows"></div>
+            <div class="btn-row">
+              <button type="button" id="params-refresh">Refresh</button>
+              <button type="submit" id="params-apply" class="primary">Apply</button>
+            </div>
+          </form>
+          <p id="params-status" class="note" aria-live="polite"></p>
+        </div>
+
         <div class="panel-block">
           <label for="vehicle-select" class="block-title">Vehicle</label>
           <select id="vehicle-select" disabled>
@@ -88,7 +124,21 @@
           <dl class="kv">
             <dt>Mode</dt><dd id="t-mode">—</dd>
             <dt>Armed</dt><dd id="t-armed">—</dd>
+            <dt class="vtol-only" hidden>VTOL</dt><dd id="t-vtol" class="vtol-only" hidden>—</dd>
             <dt>Position rate</dt><dd id="t-rate">—</dd>
+          </dl>
+        </div>
+
+        <div class="panel-block vtol-only" hidden>
+          <div class="block-title">Virtual target <span class="unit">ROS 2 fixed-wing mode</span></div>
+          <div class="triple">
+            <div><span>r</span><b id="g-r">—</b></div>
+            <div><span>a_m</span><b id="g-am">—</b></div>
+            <div><span>a_long</span><b id="g-along">—</b></div>
+          </div>
+          <dl class="kv">
+            <dt>State</dt><dd id="g-state">—</dd>
+            <dt>Target point</dt><dd id="g-index">—</dd>
           </dl>
         </div>
 

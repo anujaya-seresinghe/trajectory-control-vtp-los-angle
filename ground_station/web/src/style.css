@@ -293,6 +293,79 @@ button:disabled, button[aria-disabled="true"] { opacity: 0.45; cursor: not-allow
 .btn-row { display: flex; gap: 6px; margin: 12px 0 8px; }
 .btn-row button { flex: 1; }
 
+/* ---------- Map popup ("Go here") ---------- */
+
+.map-popup {
+  position: absolute;
+  z-index: 5;
+  min-width: 150px;
+  max-width: 230px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+  display: grid;
+  gap: 6px;
+}
+.map-popup[hidden] { display: none; }
+.map-popup-coords {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.map-popup-status { margin: 0; font-size: 12px; color: var(--text-muted); }
+.map-popup-status:empty { display: none; }
+.btn-row.tight { margin: 0; }
+
+/* ---------- Takeoff ---------- */
+
+.takeoff-row { display: flex; align-items: center; gap: 8px; }
+.inline-field { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.inline-field span:first-child { font-weight: 600; }
+.inline-field input {
+  width: 72px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  text-align: right;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.inline-field input[aria-invalid="true"] { border-color: var(--danger); }
+.takeoff-row button { flex: none; }
+#fw-btn { margin-top: 8px; }
+
+/* ---------- Controller parameters ---------- */
+
+.param-rows { display: grid; gap: 6px; }
+.param-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 76px;
+  align-items: center;
+  gap: 8px;
+}
+.param-row .sym { font-weight: 600; }
+.param-row .pname {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.param-row input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  text-align: right;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.param-row input[data-state="dirty"] { border-color: var(--warn); }
+.param-row input[data-state="pending"] { border-color: var(--accent); }
+.param-row input[aria-invalid="true"] { border-color: var(--danger); }
+
 /* ---------- Narrow screens ---------- */
 
 @media (max-width: 760px) {

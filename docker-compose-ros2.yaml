@@ -1,0 +1,24 @@
+# External PX4 flight mode "Trajectory" for fixed-wing flight (VTOL in FW), with the Micro XRCE-DDS Agent.
+#
+#   docker compose -f docker-compose-ros2.yaml up -d --build
+#
+# Host networking: PX4 SITL's uxrce_dds_client reaches the agent on localhost:8888, and the mode reads
+# trajectories from the ground station's MQTT broker (MQTT_PORT from .env, like docker-compose-gcs.yaml).
+services:
+  trajectory_mode_fw:
+    build:
+      context: .
+      dockerfile: ros2/Dockerfile
+    container_name: trajectory_mode_fw
+    network_mode: host
+    ipc: host
+    environment:
+      - MQTT_HOST=127.0.0.1
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - MAV_SYSID=1
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - START_XRCE_AGENT=${START_XRCE_AGENT:-1}
+    volumes:
+      # Runtime parameter changes are saved back to this file (see ros2/README.md)
+      - ./ros2/src/trajectory_mode_fw/config/params.yaml:/ws/install/trajectory_mode_fw/share/trajectory_mode_fw/config/params.yaml
+    restart: unless-stopped

@@ -8,7 +8,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <climits>
+#include <cmath>
 #include <cstring>
+#include <vector>
 #include <iostream>
 
 #include <mosquitto.h>
@@ -46,8 +49,120 @@ static bool jsonInt(const std::string &json, const char *key, long &value)
 
 	const char *start = json.c_str() + pos + 1;
 	char *end = nullptr;
-	value = std::strtol(start, &end, 10);
-	return end != start;
+	const long parsed = std::strtol(start, &end, 10);
+
+	if (end == start) {
+		return false; // e.g. null: leave the caller's default (such as INT32_MAX = "not set") in place
+	}
+
+	value = parsed;
+	return true;
+}
+
+// Position just after `"key":` in a flat JSON object, or npos
+static size_t jsonValuePos(const std::string &json, const char *key)
+{
+	const std::string quoted = std::string("\"") + key + "\"";
+	size_t pos = json.find(quoted);
+
+	if (pos == std::string::npos) {
+		return pos;
+	}
+
+	pos = json.find(':', pos + quoted.size());
+	return pos == std::string::npos ? pos : pos + 1;
+}
+
+static bool jsonNumber(const std::string &json, const char *key, double &value)
+{
+	const size_t pos = jsonValuePos(json, key);
+
+	if (pos == std::string::npos) {
+		return false;
+	}
+
+	const char *start = json.c_str() + pos;
+	char *end = nullptr;
+	const double parsed = std::strtod(start, &end);
+
+	// Leave `value` untouched unless a finite number was actually parsed: `"z": null` must stay NaN
+	// (e.g. DO_REPOSITION altitude "keep current"), not become 0 m AMSL.
+	if (end == start || !std::isfinite(parsed)) {
+		return false;
+	}
+
+	value = parsed;
+	return true;
+}
+
+// Quoted strings in order, starting at `from` and stopping at `stop` (e.g. ']' or ',')
+static std::vector<std::string> jsonStrings(const std::string &json, size_t from, char stop, size_t max_count)
+{
+	std::vector<std::string> out;
+
+	for (size_t i = from; i < json.size() && out.size() < max_count; ++i) {
+		if (json[i] == stop) {
+			break;
+		}
+
+		if (json[i] == '"') {
+			const size_t close = json.find('"', i + 1);
+
+			if (close == std::string::npos) {
+				break;
+			}
+
+			out.push_back(json.substr(i + 1, close - i - 1));
+			i = close;
+		}
+	}
+
+	return out;
+}
+
+// Up to max_count numbers of a JSON array starting at `open` ('['); null (or anything non-numeric) -> NaN
+static std::vector<float> jsonFloatArray(const std::string &json, size_t open, size_t max_count)
+{
+	std::vector<float> out;
+	const size_t close = json.find(']', open);
+
+	if (open == std::string::npos || close == std::string::npos) {
+		return out;
+	}
+
+	size_t start = open + 1;
+
+	while (start < close && out.size() < max_count) {
+		size_t end = json.find(',', start);
+
+		if (end == std::string::npos || end > close) {
+			end = close;
+		}
+
+		const std::string item = json.substr(start, end - start);
+		char *num_end = nullptr;
+		const double v = std::strtod(item.c_str(), &num_end);
+		out.push_back(num_end != item.c_str() && std::isfinite(v) ? static_cast<float>(v) : NAN);
+		start = end + 1;
+	}
+
+	return out;
+}
+
+// PX4 parameter names: 1-16 chars of A-Z, 0-9, _
+static bool validParamName(const std::string &name)
+{
+	if (name.empty() || name.size() > 16) {
+		return false;
+	}
+
+	for (const char c : name) {
+		if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 MavlinkMqttBridge::MavlinkMqttBridge(const BridgeConfig &config) : _config(config)
@@ -216,6 +331,10 @@ void MavlinkMqttBridge::onConnect(mosquitto *mosq, void *obj, int rc)
 	mosquitto_subscribe(mosq, nullptr, TOPIC_RAW_TX, 0);
 	mosquitto_subscribe(mosq, nullptr, (self->_config.topic_prefix + "/+/cmd/trajectory").c_str(), 1);
 	mosquitto_subscribe(mosq, nullptr, (self->_config.topic_prefix + "/+/cmd/set_mode").c_str(), 1);
+	mosquitto_subscribe(mosq, nullptr, (self->_config.topic_prefix + "/+/cmd/command_long").c_str(), 1);
+	mosquitto_subscribe(mosq, nullptr, (self->_config.topic_prefix + "/+/cmd/command_int").c_str(), 1);
+	mosquitto_subscribe(mosq, nullptr, (self->_config.topic_prefix + "/+/cmd/param_get").c_str(), 1);
+	mosquitto_subscribe(mosq, nullptr, (self->_config.topic_prefix + "/+/cmd/param_set").c_str(), 1);
 	self->publish(TOPIC_STATUS, std::string(R"({"online":true})"), true);
 }
 
@@ -245,7 +364,140 @@ void MavlinkMqttBridge::onMessage(mosquitto *, void *obj, const mosquitto_messag
 
 	if (match) {
 		self->handleSetModeCommand(sysid, payload);
+		return;
 	}
+
+	mosquitto_topic_matches_sub((prefix + "/+/cmd/command_long").c_str(), msg->topic, &match);
+
+	if (match) {
+		self->handleCommandLong(sysid, payload);
+		return;
+	}
+
+	mosquitto_topic_matches_sub((prefix + "/+/cmd/command_int").c_str(), msg->topic, &match);
+
+	if (match) {
+		self->handleCommandInt(sysid, payload);
+		return;
+	}
+
+	mosquitto_topic_matches_sub((prefix + "/+/cmd/param_get").c_str(), msg->topic, &match);
+
+	if (match) {
+		self->handleParamGetCommand(sysid, payload);
+		return;
+	}
+
+	mosquitto_topic_matches_sub((prefix + "/+/cmd/param_set").c_str(), msg->topic, &match);
+
+	if (match) {
+		self->handleParamSetCommand(sysid, payload);
+	}
+}
+
+void MavlinkMqttBridge::handleCommandLong(uint8_t sysid, const std::string &payload)
+{
+	long command = 0;
+	const size_t pos = jsonValuePos(payload, "params");
+	std::vector<float> p = pos == std::string::npos ? std::vector<float> {}
+			       : jsonFloatArray(payload, payload.find('[', pos), 7);
+
+	if (!jsonInt(payload, "command", command) || command < 0 || command > 65535) {
+		std::cerr << "Rejected command_long for system " << int(sysid) << ": bad \"command\"" << std::endl;
+		return;
+	}
+
+	p.resize(7, NAN); // missing params are NaN ("not set" for most PX4 commands)
+	mavlink_message_t msg;
+	mavlink_msg_command_long_pack_chan(_config.sysid, _config.compid, CHAN_UPLOAD, &msg,
+					   sysid, _autopilot_compid[sysid], static_cast<uint16_t>(command), 0,
+					   p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
+	sendMavlink(msg);
+
+	std::cout << "Sent COMMAND_LONG " << command << " to system " << int(sysid) << std::endl;
+}
+
+void MavlinkMqttBridge::handleCommandInt(uint8_t sysid, const std::string &payload)
+{
+	long command = 0;
+	long frame = 0;
+	const size_t pos = jsonValuePos(payload, "params");
+	std::vector<float> p = pos == std::string::npos ? std::vector<float> {}
+			       : jsonFloatArray(payload, payload.find('[', pos), 4);
+
+	if (!jsonInt(payload, "command", command) || command < 0 || command > 65535
+	    || !jsonInt(payload, "frame", frame) || frame < 0 || frame > 255) {
+		std::cerr << "Rejected command_int for system " << int(sysid) << ": bad \"command\" or \"frame\"" << std::endl;
+		return;
+	}
+
+	p.resize(4, NAN);
+	// x/y: integers (degE7 in global frames); missing -> INT32_MAX, which PX4 treats as "not set"
+	long x = INT32_MAX;
+	long y = INT32_MAX;
+	double z = NAN;
+	jsonInt(payload, "x", x);
+	jsonInt(payload, "y", y);
+	jsonNumber(payload, "z", z);
+
+	mavlink_message_t msg;
+	mavlink_msg_command_int_pack_chan(_config.sysid, _config.compid, CHAN_UPLOAD, &msg,
+					  sysid, _autopilot_compid[sysid], static_cast<uint8_t>(frame),
+					  static_cast<uint16_t>(command), 0, 0, p[0], p[1], p[2], p[3],
+					  static_cast<int32_t>(x), static_cast<int32_t>(y), static_cast<float>(z));
+	sendMavlink(msg);
+
+	std::cout << "Sent COMMAND_INT " << command << " (x=" << x << " y=" << y << ") to system " << int(sysid) << std::endl;
+}
+
+void MavlinkMqttBridge::handleParamGetCommand(uint8_t sysid, const std::string &payload)
+{
+	const size_t pos = jsonValuePos(payload, "names");
+	const size_t open = pos == std::string::npos ? pos : payload.find('[', pos);
+
+	if (open == std::string::npos) {
+		std::cerr << "Rejected param_get for system " << int(sysid) << ": expected {\"names\": [...]}" << std::endl;
+		return;
+	}
+
+	for (const std::string &name : jsonStrings(payload, open + 1, ']', 64)) {
+		if (!validParamName(name)) {
+			std::cerr << "Rejected param_get: bad parameter name \"" << name << "\"" << std::endl;
+			continue;
+		}
+
+		char id[17] {};
+		strncpy(id, name.c_str(), 16);
+		mavlink_message_t msg;
+		// param_index -1: look the parameter up by name
+		mavlink_msg_param_request_read_pack_chan(_config.sysid, _config.compid, CHAN_UPLOAD, &msg,
+				sysid, _autopilot_compid[sysid], id, -1);
+		sendMavlink(msg);
+	}
+}
+
+void MavlinkMqttBridge::handleParamSetCommand(uint8_t sysid, const std::string &payload)
+{
+	const size_t pos = jsonValuePos(payload, "name");
+	const std::vector<std::string> names = pos == std::string::npos ? std::vector<std::string> {}
+					       : jsonStrings(payload, pos, ',', 1);
+	double value = 0.0;
+
+	if (names.empty() || !validParamName(names[0]) || !jsonNumber(payload, "value", value)) {
+		std::cerr << "Rejected param_set for system " << int(sysid) << ": expected {\"name\": \"...\", \"value\": n}"
+			  << std::endl;
+		return;
+	}
+
+	char id[17] {};
+	strncpy(id, names[0].c_str(), 16);
+	mavlink_message_t msg;
+	// Float parameters only; PX4 answers with PARAM_VALUE carrying the value it actually stored
+	mavlink_msg_param_set_pack_chan(_config.sysid, _config.compid, CHAN_UPLOAD, &msg,
+					sysid, _autopilot_compid[sysid], id, static_cast<float>(value), MAV_PARAM_TYPE_REAL32);
+	sendMavlink(msg);
+
+	std::cout << "Sent PARAM_SET " << id << " = " << value << " to system " << int(sysid) << std::endl;
 }
 
 void MavlinkMqttBridge::handleSetModeCommand(uint8_t sysid, const std::string &payload)
@@ -455,6 +707,100 @@ void MavlinkMqttBridge::handleMavlinkMessage(const mavlink_message_t &msg)
 			break;
 		}
 
+	case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
+			mavlink_global_position_int_t g;
+			mavlink_msg_global_position_int_decode(&msg, &g);
+			snprintf(json, sizeof(json),
+				 R"({"time_boot_ms":%u,"lat":%.7f,"lon":%.7f,"alt":%.3f,"relative_alt":%.3f})",
+				 g.time_boot_ms, g.lat * 1e-7, g.lon * 1e-7, g.alt * 1e-3, g.relative_alt * 1e-3);
+			publish(vehicleTopic(msg.sysid, "global_position"), std::string(json));
+			break;
+		}
+
+	case MAVLINK_MSG_ID_EXTENDED_SYS_STATE: {
+			mavlink_extended_sys_state_t es;
+			mavlink_msg_extended_sys_state_decode(&msg, &es);
+			snprintf(json, sizeof(json), R"({"vtol_state":%u,"landed_state":%u})", es.vtol_state, es.landed_state);
+			publish(vehicleTopic(msg.sysid, "extended_sys_state"), std::string(json));
+			break;
+		}
+
+	case MAVLINK_MSG_ID_AVAILABLE_MODES: {
+			mavlink_available_modes_t am;
+			mavlink_msg_available_modes_decode(&msg, &am);
+			char name[36] {};
+			memcpy(name, am.mode_name, 35);
+			std::string escaped;
+
+			for (const char *c = name; *c; ++c) {
+				if (*c == '"' || *c == '\\') {
+					escaped += '\\';
+				}
+
+				if (static_cast<unsigned char>(*c) >= 0x20) {
+					escaped += *c;
+				}
+			}
+
+			snprintf(json, sizeof(json),
+				 R"({"index":%u,"number_modes":%u,"custom_mode":%u,"standard_mode":%u,"properties":%u,"name":"%s"})",
+				 am.mode_index, am.number_modes, am.custom_mode, am.standard_mode, am.properties, escaped.c_str());
+			publish(vehicleTopic(msg.sysid, "available_mode"), std::string(json));
+			break;
+		}
+
+	case MAVLINK_MSG_ID_AVAILABLE_MODES_MONITOR: {
+			mavlink_available_modes_monitor_t mon;
+			mavlink_msg_available_modes_monitor_decode(&msg, &mon);
+			snprintf(json, sizeof(json), R"({"seq":%u})", mon.seq);
+			publish(vehicleTopic(msg.sysid, "available_modes_monitor"), std::string(json));
+			break;
+		}
+
+	case MAVLINK_MSG_ID_STATUSTEXT: {
+			mavlink_statustext_t st;
+			mavlink_msg_statustext_decode(&msg, &st);
+			char text[51] {};
+			memcpy(text, st.text, 50); // not NUL-terminated when 50 chars long
+			std::string escaped;
+
+			for (const char *c = text; *c; ++c) {
+				if (*c == '"' || *c == '\\') {
+					escaped += '\\';
+				}
+
+				if (static_cast<unsigned char>(*c) >= 0x20) {
+					escaped += *c;
+				}
+			}
+
+			snprintf(json, sizeof(json), R"({"severity":%u,"text":"%s"})", st.severity, escaped.c_str());
+			publish(vehicleTopic(msg.sysid, "statustext"), std::string(json));
+			break;
+		}
+
+	case MAVLINK_MSG_ID_PARAM_VALUE: {
+			mavlink_param_value_t pv;
+			mavlink_msg_param_value_decode(&msg, &pv);
+			char id[17] {};
+			memcpy(id, pv.param_id, 16); // not NUL-terminated when the name is 16 chars
+
+			if (pv.param_type == MAV_PARAM_TYPE_REAL32) {
+				snprintf(json, sizeof(json), R"({"name":"%s","value":%.9g,"type":"float","index":%u,"count":%u})",
+					 id, static_cast<double>(pv.param_value), pv.param_index, pv.param_count);
+
+			} else {
+				// PX4 encodes integer parameters bytewise in the float field
+				int32_t ivalue = 0;
+				memcpy(&ivalue, &pv.param_value, sizeof(ivalue));
+				snprintf(json, sizeof(json), R"({"name":"%s","value":%d,"type":"int","index":%u,"count":%u})",
+					 id, static_cast<int>(ivalue), pv.param_index, pv.param_count);
+			}
+
+			publish(vehicleTopic(msg.sysid, "param"), std::string(json));
+			break;
+		}
+
 	case MAVLINK_MSG_ID_COMMAND_ACK: {
 			mavlink_command_ack_t ack;
 			mavlink_msg_command_ack_decode(&msg, &ack);
@@ -518,7 +864,8 @@ void MavlinkMqttBridge::requestStreams(uint8_t target_sys, uint8_t target_comp)
 {
 	const float interval_us = 1e6f / _config.stream_rate_hz;
 
-	for (const uint32_t msg_id : {MAVLINK_MSG_ID_LOCAL_POSITION_NED, MAVLINK_MSG_ID_ATTITUDE}) {
+	for (const uint32_t msg_id : {MAVLINK_MSG_ID_LOCAL_POSITION_NED, MAVLINK_MSG_ID_ATTITUDE,
+				      MAVLINK_MSG_ID_GLOBAL_POSITION_INT}) {
 		mavlink_message_t msg;
 		mavlink_msg_command_long_pack_chan(_config.sysid, _config.compid, CHAN_UDP, &msg,
 						   target_sys, target_comp, CMD_SET_MESSAGE_INTERVAL, 0,
@@ -526,7 +873,7 @@ void MavlinkMqttBridge::requestStreams(uint8_t target_sys, uint8_t target_comp)
 		sendMavlink(msg);
 	}
 
-	std::cout << "Requested LOCAL_POSITION_NED/ATTITUDE at " << _config.stream_rate_hz
+	std::cout << "Requested LOCAL_POSITION_NED/ATTITUDE/GLOBAL_POSITION_INT at " << _config.stream_rate_hz
 		  << " Hz from system " << int(target_sys) << std::endl;
 }
 

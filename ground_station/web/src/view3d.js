@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { readSceneColors, onThemeChange } from './theme.js';
+import { isVtol } from './px4.js';
 
 const TRAIL_CAPACITY = 20000;
 const MODEL_SCALE = 4; // exaggerate the airframe so it stays visible at trajectory scale
@@ -176,11 +177,11 @@ export class View3D {
 
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: c.uav, roughness: 0.6, metalness: 0.2 });
     const noseMaterial = new THREE.MeshStandardMaterial({ color: c['uav-nose'], roughness: 0.6 });
-    const model = buildQuadModel(bodyMaterial, noseMaterial);
-    model.scale.setScalar(MODEL_SCALE);
+    const vtol = isVtol(vehicle);
+    const model = buildModel(vtol, bodyMaterial, noseMaterial);
 
     this.scene.add(trail, shadowTrail, stalk, velocity, model);
-    entry = { trail, shadowTrail, stalk, velocity, model, bodyMaterial, noseMaterial, trailVersion: -1 };
+    entry = { trail, shadowTrail, stalk, velocity, model, vtol, bodyMaterial, noseMaterial, trailVersion: -1 };
     this.entries.set(vehicle.sysid, entry);
     return entry;
   }
@@ -190,6 +191,16 @@ export class View3D {
     const entry = this._entry(vehicle);
     const p = vehicle.position;
     const pos = nedToThree(p.x, p.y, p.z);
+
+    // The vehicle type is known from the heartbeat, which can arrive after the first position
+    const vtol = isVtol(vehicle);
+    if (vtol !== entry.vtol) {
+      this.scene.remove(entry.model);
+      disposeModel(entry.model);
+      entry.model = buildModel(vtol, entry.bodyMaterial, entry.noseMaterial);
+      entry.vtol = vtol;
+      this.scene.add(entry.model);
+    }
 
     entry.model.position.copy(pos);
     const att = vehicle.attitude;
@@ -243,6 +254,66 @@ function makeLine(points, { dashed = false } = {}) {
   line.frustumCulled = false;
   if (dashed) line.computeLineDistances();
   return line;
+}
+
+function buildModel(vtol, bodyMaterial, noseMaterial) {
+  const model = vtol ? buildVtolModel(bodyMaterial, noseMaterial) : buildQuadModel(bodyMaterial, noseMaterial);
+  model.scale.setScalar(MODEL_SCALE);
+  return model;
+}
+
+/** Frees the model's own geometries and rotor materials; the shared body/nose materials stay. */
+function disposeModel(model) {
+  model.traverse((obj) => {
+    if (!obj.isMesh) return;
+    obj.geometry.dispose();
+    if (obj.material.transparent) obj.material.dispose();
+  });
+}
+
+function makeRotor(radius, material) {
+  const rotor = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, 0.008, 24),
+    new THREE.MeshStandardMaterial({ color: material.color, transparent: true, opacity: 0.35 }),
+  );
+  rotor.material.color = material.color; // share colour so theme changes propagate
+  return rotor;
+}
+
+/** Standard VTOL (quadplane), ~1 m span: fuselage, wing, tail, two booms with four lift rotors and a pusher. Forward is -Z. */
+function buildVtolModel(bodyMaterial, noseMaterial) {
+  const group = new THREE.Group();
+  const box = (w, h, d, x, y, z, material = bodyMaterial) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(x, y, z);
+    group.add(mesh);
+    return mesh;
+  };
+
+  box(0.08, 0.08, 0.5, 0, 0, 0); // fuselage
+  box(1.0, 0.015, 0.14, 0, 0.02, -0.03); // wing
+  box(0.3, 0.01, 0.07, 0, 0.01, 0.22); // horizontal tail
+  box(0.01, 0.1, 0.07, 0, 0.06, 0.22); // vertical tail
+  for (const x of [-0.22, 0.22]) {
+    box(0.02, 0.02, 0.5, x, 0.02, 0); // boom
+    for (const z of [-0.22, 0.22]) {
+      const rotor = makeRotor(0.1, z < 0 ? noseMaterial : bodyMaterial);
+      rotor.position.set(x, 0.05, z);
+      group.add(rotor);
+    }
+  }
+
+  const pusher = makeRotor(0.07, bodyMaterial);
+  pusher.rotation.x = Math.PI / 2;
+  pusher.position.set(0, 0, 0.26);
+  group.add(pusher);
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 12), noseMaterial);
+  nose.rotation.x = -Math.PI / 2;
+  nose.position.set(0, 0, -0.3);
+  group.add(nose);
+
+  return group;
 }
 
 /** X-configuration quadrotor, ~0.5 m motor-to-motor. Forward is -Z. */
