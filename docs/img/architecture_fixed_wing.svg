@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1e88e5"/>
+    </marker>
+    <style>
+      .box { fill: #0b5d5d; stroke: #a8d8d0; stroke-width: 1.5; }
+      .t { fill: #ffffff; font-size: 14px; text-anchor: middle; }
+      .s { fill: #cfe8e4; font-size: 11.5px; text-anchor: middle; }
+      .l { fill: #ffffff; font-size: 12px; }
+      .g { fill: #ffffff; font-size: 22px; }
+      .n { fill: #d0d0d0; font-size: 13px; }
+      .arrow { stroke: #1e88e5; stroke-width: 2; fill: none; marker-end: url(#a); }
+      .both { stroke: #1e88e5; stroke-width: 2; fill: none; marker-end: url(#a); marker-start: url(#a); }
+    </style>
+  </defs>
+  <rect width="1200" height="720" fill="#131313"/>
+
+  <!-- Ground station -->
+  <rect x="15" y="40" width="285" height="500" fill="#16233a" stroke="#5c7ab8" stroke-width="2"/>
+  <text class="g" x="30" y="72">Ground station</text>
+  <rect class="box" x="35" y="100" width="245" height="80"/>
+  <text class="t" x="157" y="130">Web GCS (browser)</text>
+  <text class="s" x="157" y="150">plan trajectory · TRAJ_* parameters</text>
+  <text class="s" x="157" y="166">virtual target: state, r, index</text>
+  <rect class="box" x="35" y="260" width="245" height="60"/>
+  <text class="t" x="157" y="295">MQTT broker (mosquitto)</text>
+  <rect class="box" x="35" y="430" width="245" height="80"/>
+  <text class="t" x="157" y="462">MAVLink ↔ MQTT bridge (C++)</text>
+  <text class="s" x="157" y="482">uploads the trajectory point by point</text>
+  <path class="both" d="M157,182 V258"/>
+  <text class="l" x="165" y="225">MQTT / WebSocket</text>
+  <path class="both" d="M157,322 V428"/>
+  <text class="l" x="165" y="380">MQTT</text>
+
+  <!-- PX4 -->
+  <rect x="360" y="40" width="400" height="500" fill="#013300" stroke="#3f8f3f" stroke-width="2"/>
+  <text class="g" x="375" y="72">PX4 (no source changes)</text>
+  <rect class="box" x="385" y="100" width="350" height="80"/>
+  <text class="t" x="560" y="130">Fixed-wing control</text>
+  <text class="s" x="560" y="150">fw_lateral_longitudinal_control → roll / TECS</text>
+  <text class="s" x="560" y="166">lateral acceleration → roll = atan(a / g)</text>
+  <rect class="box" x="385" y="220" width="145" height="80"/>
+  <text class="t" x="457" y="252">Commander</text>
+  <text class="s" x="457" y="272">external mode</text>
+  <text class="s" x="457" y="288">"Trajectory"</text>
+  <rect class="box" x="590" y="220" width="145" height="80"/>
+  <text class="t" x="662" y="252">uXRCE-DDS client</text>
+  <text class="s" x="662" y="272">setpoints in,</text>
+  <text class="s" x="662" y="288">odometry / status out</text>
+  <path class="arrow" d="M662,218 V182"/>
+  <path class="both" d="M532,260 H588"/>
+  <rect class="box" x="385" y="430" width="145" height="80"/>
+  <text class="t" x="457" y="460">MAVLink</text>
+  <text class="s" x="457" y="478">onboard link</text>
+  <text class="s" x="457" y="494">UDP 14580 / 14540</text>
+  <rect class="box" x="590" y="430" width="145" height="80"/>
+  <text class="t" x="662" y="460">MAVLink</text>
+  <text class="s" x="662" y="478">companion link (-f)</text>
+  <text class="s" x="662" y="494">UDP 14591 / 14590</text>
+  <path class="both" d="M532,470 H588"/>
+  <text class="l" x="560" y="530" text-anchor="middle">forwarding between links</text>
+
+  <!-- ROS 2 -->
+  <rect x="820" y="40" width="365" height="500" fill="#2a1f3d" stroke="#8f6fc9" stroke-width="2"/>
+  <text class="g" x="835" y="72">ROS 2 · trajectory_mode_fw</text>
+  <rect class="box" x="840" y="100" width="325" height="80"/>
+  <text class="t" x="1002" y="128">Setpoint conversion (px4_ros2)</text>
+  <text class="s" x="1002" y="148">a_m → FixedWingLateralSetpoint.lateral_acceleration</text>
+  <text class="s" x="1002" y="164">a_long → speed ref → EAS (TECS) · altitude hold</text>
+  <rect class="box" x="840" y="220" width="200" height="80"/>
+  <text class="t" x="940" y="252">Micro XRCE-DDS Agent</text>
+  <text class="s" x="940" y="272">UDP 8888</text>
+  <path class="arrow" d="M940,182 V218"/>
+  <path class="both" d="M838,260 H737"/>
+  <text class="l" x="790" y="250" text-anchor="middle">DDS</text>
+  <rect class="box" x="840" y="315" width="325" height="80"/>
+  <text class="t" x="1002" y="341">FwTrajectoryController</text>
+  <text class="s" x="1002" y="361">acquisition → TrajectoryManager (virtual target)</text>
+  <text class="s" x="1002" y="377">→ sliding-mode guidance: a_m, a_long</text>
+  <path class="arrow" d="M1110,313 V182"/>
+  <rect class="box" x="840" y="430" width="325" height="80"/>
+  <text class="t" x="1002" y="458">MavlinkLink (sysid 1, compid 191)</text>
+  <text class="s" x="1002" y="478">TRAJECTORY_SETPOINT_INITIATE / UPLOAD · PARAM_*</text>
+  <text class="s" x="1002" y="494">→ PARAM_VALUE · STATUSTEXT · NAMED_VALUE_FLOAT</text>
+  <path class="arrow" d="M1002,428 V397"/>
+  <path class="both" d="M737,470 H838"/>
+  <text class="l" x="790" y="460" text-anchor="middle">UDP</text>
+
+  <!-- ground station link -->
+  <path class="both" d="M282,470 H383"/>
+  <text class="l" x="332" y="460" text-anchor="middle">UDP</text>
+
+  <!-- notes -->
+  <text class="n" x="20" y="590">GCS → mode: the same broadcast TRAJECTORY_SETPOINT_INITIATE + UPLOAD as the multicopter mode, and PARAM_* addressed to compid 191.</text>
+  <text class="n" x="20" y="614">Mode → GCS: PARAM_VALUE, STATUSTEXT (received / acquiring / tracking / finished), NAMED_VALUE_FLOAT at 5 Hz:</text>
+  <text class="n" x="48" y="636">TRAJ_STATE, TRAJ_R, TRAJ_IDX, TRAJ_N, TRAJ_A_M, TRAJ_ALONG.</text>
+  <text class="n" x="20" y="660">Mode ⇄ PX4: uXRCE-DDS for FixedWingLateral/LongitudinalSetpoint, odometry, vehicle status and mode registration (px4-ros2-interface-lib).</text>
+  <text class="n" x="20" y="684">The companion link is started at runtime (mavlink start -u 14591 -o 14590 -f); on hardware, a MAV_n_CONFIG instance with MAV_n_FORWARD = 1.</text>
+</svg>
