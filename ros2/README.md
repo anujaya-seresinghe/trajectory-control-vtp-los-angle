@@ -3,8 +3,10 @@
 `trajectory_mode_fw` is an external PX4 flight mode named **"Trajectory"** for a VTOL in fixed-wing flight (or a plain fixed-wing). It runs the same virtual-target sliding-mode guidance as the PX4-internal Trajectory mode, and needs **no PX4 changes**. It is built on [px4-ros2-interface-lib](https://github.com/Auterion/px4-ros2-interface-lib) and uXRCE-DDS.
 
 ```
-web app ──MQTT uav/<sysid>/cmd/trajectory──► trajectory_mode_fw (ROS 2) ──uXRCE-DDS──► PX4
-                                              TrajectoryManager + FlightTaskTraj port    fw_lateral_longitudinal_control
+web app ─MQTT─ bridge ─MAVLink─► PX4 ─forwarding (MAVLink instance with -f)─► trajectory_mode_fw (compid 191)
+                                  ▲                                               │
+                                  └──────────────── uXRCE-DDS (setpoints) ◄───────┘
+                                                    TrajectoryManager + FlightTaskTraj port → fw_lateral_longitudinal_control
 ```
 
 ## What it does
@@ -19,7 +21,13 @@ web app ──MQTT uav/<sysid>/cmd/trajectory──► trajectory_mode_fw (ROS 2
 | — altitude | → held at the AMSL altitude it had when the mode was activated (`FixedWingLongitudinalSetpoint.altitude`) |
 
 Where it has to differ:
-- **Waypoints come over MQTT**, the same JSON the web app publishes. PX4 doesn't export the `continuous_trajectory_*` uORB topics over DDS. A ROS topic works too: `~/trajectory_json` (`std_msgs/String`, same JSON).
+- **Everything to and from the ground station is MAVLink, like the internal mode.** PX4 doesn't export the `continuous_trajectory_*` uORB topics over DDS, so the node is its own MAVLink component (sysid 1, compid 191, "onboard computer") and PX4 forwards the ground station's messages to it:
+  - the same broadcast `TRAJECTORY_SETPOINT_INITIATE` + `TRAJECTORY_SETPOINT_UPLOAD` the internal mode uses; complete when all indices have arrived, confirmed with the STATUSTEXT `Trajectory <id> received (<n> points)`;
+  - the MAVLink parameter protocol for `TRAJ_*` (`PARAM_REQUEST_READ/LIST`, `PARAM_SET` → `PARAM_VALUE`, a rejected set is reported with a STATUSTEXT first);
+  - the guidance state as `NAMED_VALUE_FLOAT` at 5 Hz: `TRAJ_STATE` (0 inactive, 1 holding course, 2 tracking), `TRAJ_R`, `TRAJ_IDX`, `TRAJ_N`, `TRAJ_A_M`, `TRAJ_ALONG`. The web app shows them in the **Virtual target** block. QGC's MAVLink Inspector shows them too.
+
+  It needs **its own PX4 MAVLink instance with forwarding**, because PX4 never forwards back to the instance a message came from and the bridge uses the SITL onboard link. `run_sim.sh --vtol` starts it (runtime only, no PX4 change): `mavlink start -u 14591 -o 14590 -r 4000000 -m minimal -f`. On hardware, configure a `MAV_n_CONFIG` instance for the companion computer with `MAV_n_FORWARD = 1`.
+- A ROS topic also accepts trajectories: `~/trajectory_json` (`std_msgs/String`, same JSON).
 - **Nothing to fly yet**, no valid position, or no target in range (for example after the end of the path): a fixed-wing can't stop and wait, so it flies straight on its last course at the held altitude. The internal mode would publish a non-finite setpoint here.
 - **Registration waits for fixed-wing flight.** PX4 only accepts fixed-wing setpoints while `vehicle_type == FIXED_WING`, and the library checks this once at registration, so the mode appears in PX4 after the first transition to fixed-wing. It is also unavailable (arming/run check) whenever the vehicle is not in fixed-wing flight.
 - As in the internal mode, the target restarts at the first point on every activation. A trajectory that arrives while the mode is inactive is used at the next activation.
@@ -36,14 +44,14 @@ The image contains:
 - px4-ros2-interface-lib **2.2.0**, the last release before that PX4 commit;
 - this package. Its unit tests run during the build.
 
-It uses host networking and reads `MQTT_PORT` from `.env`, like the GCS. If you already run an agent, set `START_XRCE_AGENT=0`. Logs: `docker logs -f trajectory_mode_fw`.
+It uses host networking (XRCE-DDS on UDP 8888, MAVLink on UDP 14590 ↔ PX4 14591). If you already run an agent, set `START_XRCE_AGENT=0`. Logs: `docker logs -f trajectory_mode_fw`.
 
 In flight: take off, **transition to fixed-wing**, and wait for `Mode "Trajectory" registered` in the log. Send the trajectory, then select the mode. It is the first external mode, so `commander mode ext1` works in the PX4 shell, and QGC lists it by name.
 
 ## Parameters
 
 These are ROS 2 parameters, separate from PX4's `TRAJ_*` parameters, which only the internal multicopter mode uses. All of them can be changed while flying:
-- **Web app:** for a VTOL, the **Controller parameters** panel is labelled "(ROS 2 fixed-wing mode)". It reads and sets these parameters over MQTT (`cmd/ros_param_get`, `cmd/ros_param_set` → `ros_param`). For a multicopter it still uses PX4's `TRAJ_*` over MAVLink, as before.
+- **Web app:** for a VTOL, the **Controller parameters** panel is labelled "(ROS 2 fixed-wing mode)". It reads and sets them with MAVLink parameter messages addressed to compid 191, through the bridge (`cmd/param_get`/`cmd/param_set` with `"component": 191` → `param`m`). For a multicopter it still uses PX4's `TRAJ_*` over MAVLink, as before.
 - **Command line:**
   ```bash
   docker exec trajectory_mode_fw bash -c 'source /ws/install/setup.bash && ros2 param set /trajectory_mode_fw traj_r_star 30.0'
@@ -58,7 +66,8 @@ Values are checked against the same ranges as the PX4 parameters, and an out-of-
 | `traj_k_long`, `traj_a_long_max` | 0.5, 0.3 m/s² | `TRAJ_K_LONG`, `TRAJ_A_LONG_MAX` |
 | `traj_a_m_max` | 2 m/s² | `TRAJ_A_M_MAX` |
 | `traj_search_window` | 100 | search window in `TrajectoryManager` |
-| `mqtt_host`, `mqtt_port`, `topic_prefix`, `sysid` | 127.0.0.1, 1883, uav, 1 | where trajectories arrive (and parameter get/set for the web panel) |
+| `sysid`, `mavlink_compid` | 1, 191 | the MAVLink identity of the mode |
+| `mavlink_local_port`, `mavlink_remote_host`, `mavlink_remote_port` | 14590, 127.0.0.1, 14591 | its PX4 MAVLink instance |
 
 Current values (and defaults for new setups) are in `src/trajectory_mode_fw/config/params.yaml`.
 

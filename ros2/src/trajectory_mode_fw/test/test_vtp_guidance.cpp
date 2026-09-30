@@ -139,3 +139,104 @@ TEST(YamlParams, DoublesStayDoubles)
 	EXPECT_EQ(yamlDouble(0.05), "0.05");
 	EXPECT_EQ(yamlDouble(1.4), "1.4");
 }
+
+#include "trajectory_mode_fw/trajectory_upload.hpp"
+
+TEST(TrajectoryUpload, CompleteAfterAllIndicesInAnyOrder)
+{
+	TrajectoryUpload upload;
+	EXPECT_FALSE(upload.add(0, {}).has_value()); // before INITIATE: ignored
+
+	upload.initiate(7, 3);
+	EXPECT_FALSE(upload.add(2, {2.f, 0.f, 16.f, 0.f, 0.f, 0.f, 0.f}).has_value());
+	EXPECT_FALSE(upload.add(0, {0.f, 0.f, 16.f, 0.f, 0.f, 0.f, 0.f}).has_value());
+	EXPECT_FALSE(upload.add(0, {}).has_value()); // duplicate
+	EXPECT_FALSE(upload.add(5, {}).has_value()); // out of range
+
+	const auto trajectory = upload.add(1, {1.f, 0.f, 16.f, 0.f, 0.f, 0.f, 0.f});
+	ASSERT_TRUE(trajectory.has_value());
+	EXPECT_EQ(trajectory->id, 7);
+	ASSERT_EQ(trajectory->points.size(), 3u);
+
+	for (int i = 0; i < 3; ++i) {
+		EXPECT_FLOAT_EQ(trajectory->points[i].x, static_cast<float>(i));
+	}
+
+	EXPECT_FALSE(upload.add(1, {}).has_value()); // finished: ignored until the next INITIATE
+}
+
+TEST(TrajectoryUpload, InitiateRestarts)
+{
+	TrajectoryUpload upload;
+	upload.initiate(1, 2);
+	upload.add(0, {});
+	upload.initiate(2, 1);
+	const auto trajectory = upload.add(0, {5.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f});
+	ASSERT_TRUE(trajectory.has_value());
+	EXPECT_EQ(trajectory->id, 2);
+	EXPECT_EQ(trajectory->points.size(), 1u);
+}
+
+#include "fw_sim.hpp"
+
+// Fixed-wing closed loop (fw_sim.hpp): acquisition + the internal mode's guidance must bring the vehicle onto the
+// path from any start and follow it to the end
+namespace
+{
+
+struct StartCase {
+	float x, y, course;
+};
+
+constexpr StartCase kStarts[] = {
+	{0.f, 400.f, 0.f},                          // 400 m beside the start, heading along
+	{0.f, 0.f, float(M_PI)},                    // on the first point, flying the wrong way
+	{-1000.f, -300.f, float(M_PI)},             // 1 km away, flying away
+	{150.f, -200.f, float(M_PI_2)},             // beside the path, flying across it
+	{100.f, 5.f, 0.f},                          // on the path ahead of the start, aligned
+};
+
+void expectFollows(const FwControllerParams &params, float max_mean_error)
+{
+	const Trajectory path = sim::makePath(0.f, 0.f, 0.f);
+
+	for (const StartCase &start : kStarts) {
+		sim::Aircraft aircraft;
+		aircraft.x = start.x;
+		aircraft.y = start.y;
+		aircraft.course = start.course;
+		const sim::Result r = sim::fly(aircraft, path, params);
+		SCOPED_TRACE(testing::Message() << "start " << start.x << ", " << start.y << ", course " << start.course);
+		EXPECT_TRUE(r.captured);
+		EXPECT_TRUE(r.finished);
+		EXPECT_LT(r.mean_error, max_mean_error);
+	}
+}
+
+} // namespace
+
+TEST(FwTrajectoryController, FollowsPathFromAnyStartDefaultGains)
+{
+	FwControllerParams params;
+	params.guidance.r_star = 30.f;
+	expectFollows(params, 10.f);
+}
+
+TEST(FwTrajectoryController, FollowsPathFromAnyStartAggressiveGains)
+{
+	FwControllerParams params;
+	params.guidance.r_star = 30.f;
+	params.guidance.beta = 0.5f;
+	params.guidance.epsilon = 0.1f;
+	params.guidance.a_m_max = 8.f;
+	params.guidance.a_long_max = 2.f;
+	expectFollows(params, 20.f);
+}
+
+TEST(PathAcquisition, NoCaptureWhileFlyingAgainstThePath)
+{
+	PathAcquisition acquisition;
+	const TrajectoryPoint point{0.f, 0.f, 16.f, 0.f, 0.f, 0.f, 0.f};
+	EXPECT_FALSE(acquisition.update({1.f, 0.f}, {-16.f, 0.f}, point, 30.f, 4.f).captured);
+	EXPECT_TRUE(acquisition.update({1.f, 0.f}, {16.f, 0.f}, point, 30.f, 4.f).captured);
+}

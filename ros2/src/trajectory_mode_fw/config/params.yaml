@@ -10,8 +10,12 @@ trajectory_mode_fw:
     traj_a_m_max: 8.0        # [m/s^2] lateral acceleration limit (PX4 also limits it to tan(FW_R_LIM)*g)
     traj_a_long_max: 2.0     # [m/s^2]
     traj_search_window: 100  # indices ahead of the current virtual target
-    # Trajectory input: the ground station publishes on <topic_prefix>/<sysid>/cmd/trajectory
-    mqtt_host: 127.0.0.1     # not "localhost": libmosquitto tries IPv6 ::1 first, the broker listens on IPv4
-    mqtt_port: 1883
-    topic_prefix: uav
+    traj_acq_a_max: 4.0      # [m/s^2] fixed-wing path acquisition: lateral limit, turn radius V^2/a (64 m at 16 m/s)
+    # MAVLink: a component of the vehicle on its own PX4 MAVLink instance with forwarding (-f), so PX4 forwards the
+    # ground station's trajectory upload and parameter messages to it. run_sim.sh --vtol starts that instance:
+    #   mavlink start -u 14591 -o 14590 -r 4000000 -m minimal -f
     sysid: 1
+    mavlink_compid: 191      # MAV_COMP_ID_ONBOARD_COMPUTER; the web app addresses the TRAJ_* parameters to it
+    mavlink_local_port: 14590
+    mavlink_remote_host: 127.0.0.1
+    mavlink_remote_port: 14591

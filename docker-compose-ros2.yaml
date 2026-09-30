@@ -2,8 +2,8 @@
 #
 #   docker compose -f docker-compose-ros2.yaml up -d --build
 #
-# Host networking: PX4 SITL's uxrce_dds_client reaches the agent on localhost:8888, and the mode reads
-# trajectories from the ground station's MQTT broker (MQTT_PORT from .env, like docker-compose-gcs.yaml).
+# Host networking: PX4 SITL's uxrce_dds_client reaches the agent on localhost:8888, and the mode is a MAVLink
+# component on PX4's onboard link (UDP 14540/14580); PX4 forwards the ground station's messages to it.
 services:
   trajectory_mode_fw:
     build:
@@ -13,8 +13,6 @@ services:
     network_mode: host
     ipc: host
     environment:
-      - MQTT_HOST=127.0.0.1
-      - MQTT_PORT=${MQTT_PORT:-1883}
       - MAV_SYSID=1
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - START_XRCE_AGENT=${START_XRCE_AGENT:-1}

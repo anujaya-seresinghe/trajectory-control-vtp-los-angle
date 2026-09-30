@@ -1,4 +1,5 @@
 import mqtt from 'mqtt';
+import { ROS_MODE_COMPID, ROS_GUIDANCE_FIELDS } from './px4.js';
 
 // Topics published by ground_station/bridge (see bridge.hpp)
 const TOPIC_PREFIX = 'uav';
@@ -21,7 +22,8 @@ export class Vehicle {
     this.modesSeq = null; // AVAILABLE_MODES_MONITOR sequence
     this.params = new Map(); // PX4 parameter name -> {value, type}
     this.rosParams = new Map(); // ROS 2 fixed-wing mode parameters (PX4-style names) -> {value, type}
-    this.rosGuidance = null; // latest ros_guidance from the ROS 2 fixed-wing mode: {state, r, index, points, a_m, ...}
+    this.rosGuidance = {}; // ROS 2 fixed-wing mode's NAMED_VALUE_FLOATs: {state, r, index, points, a_m, a_long}
+    this.rosParamErrors = new Map(); // name -> reason, from the mode's "<NAME> rejected: ..." STATUSTEXT
     this.rosGuidanceAt = 0;
     this.lastPositionAt = 0;
     this.lastHeartbeatAt = 0;
@@ -155,17 +157,22 @@ export class Telemetry extends EventTarget {
     return true;
   }
 
-  /** VTOL: read parameters of the ROS 2 fixed-wing Trajectory mode (answers arrive as 'ros-param' events). */
+  /**
+   * VTOL: read parameters of the ROS 2 fixed-wing Trajectory mode. Plain MAVLink PARAM_REQUEST_READ addressed to its
+   * component (PX4 forwards it); answers arrive as 'ros-param' events.
+   */
   requestRosParams(sysid, names) {
     if (!this.client?.connected) return false;
-    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/ros_param_get`, JSON.stringify({ names }), { qos: 1 });
+    const payload = JSON.stringify({ names, component: ROS_MODE_COMPID });
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/param_get`, payload, { qos: 1 });
     return true;
   }
 
-  /** VTOL: set a parameter of the ROS 2 mode; it answers with the stored value (and saves it to its params.yaml). */
+  /** VTOL: MAVLink PARAM_SET to the ROS 2 mode; it answers with the stored value (and saves it to its params.yaml). */
   setRosParam(sysid, name, value) {
     if (!this.client?.connected) return false;
-    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/ros_param_set`, JSON.stringify({ name, value }), { qos: 1 });
+    const payload = JSON.stringify({ name, value, component: ROS_MODE_COMPID });
+    this.client.publish(`${TOPIC_PREFIX}/${sysid}/cmd/param_set`, payload, { qos: 1 });
     return true;
   }
 
@@ -209,6 +216,14 @@ export class Telemetry extends EventTarget {
         vehicle.lastHeartbeatAt = performance.now();
         break;
       case 'param':
+        if (data.component === ROS_MODE_COMPID) {
+          // The mode reports a rejected PARAM_SET as a STATUSTEXT just before the unchanged PARAM_VALUE
+          const error = vehicle.rosParamErrors.get(data.name);
+          vehicle.rosParamErrors.delete(data.name);
+          vehicle.rosParams.set(data.name, { value: data.value, type: data.type });
+          this.dispatchEvent(new CustomEvent('ros-param', { detail: { sysid, ...data, error } }));
+          break;
+        }
         vehicle.params.set(data.name, { value: data.value, type: data.type });
         this.dispatchEvent(new CustomEvent('param', { detail: { sysid, ...data } }));
         break;
@@ -231,18 +246,24 @@ export class Telemetry extends EventTarget {
           this.dispatchEvent(new CustomEvent('modes-changed', { detail: vehicle }));
         }
         break;
-      case 'ros_param':
-        vehicle.rosParams.set(data.name, { value: data.value, type: data.type });
-        this.dispatchEvent(new CustomEvent('ros-param', { detail: { sysid, ...data } }));
+      case 'named_value': {
+        const field = data.component === ROS_MODE_COMPID && ROS_GUIDANCE_FIELDS[data.name];
+        if (field) {
+          vehicle.rosGuidance[field[0]] = field[1](data.value);
+          vehicle.rosGuidanceAt = performance.now();
+        }
         break;
-      case 'ros_guidance':
-        vehicle.rosGuidance = data;
-        vehicle.rosGuidanceAt = performance.now();
-        break;
-      case 'ros_trajectory_status':
-        this.dispatchEvent(new CustomEvent('ros-trajectory-status', { detail: { sysid, ...data } }));
-        break;
+      }
       case 'statustext':
+        if (data.component === ROS_MODE_COMPID) {
+          const rejected = /^(\w+) rejected: (.*)$/.exec(data.text);
+          if (rejected) vehicle.rosParamErrors.set(rejected[1], rejected[2]);
+          const received = /^Trajectory (\d+) received \((\d+) points\)/.exec(data.text);
+          if (received) {
+            const detail = { sysid, id: +received[1], points: +received[2], state: 'loaded' };
+            this.dispatchEvent(new CustomEvent('ros-trajectory-status', { detail }));
+          }
+        }
         this.dispatchEvent(new CustomEvent('statustext', { detail: { sysid, ...data } }));
         break;
       case 'command_ack':

@@ -1,5 +1,5 @@
 # ROS 2 external PX4 flight mode "Trajectory" (fixed-wing) + Micro XRCE-DDS Agent.
-# Build context: repository root (needs ros2/src and PX4/msg).
+# Build context: repository root (needs ros2/src, PX4/msg and libraries/mavlink).
 FROM ros:jazzy-ros-base
 
 # Must match the PX4 commit in DockerfilePX4
@@ -11,7 +11,7 @@ ARG XRCE_AGENT_VERSION=v2.4.3
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git build-essential cmake pkg-config libmosquitto-dev libeigen3-dev \
+        git build-essential cmake pkg-config libeigen3-dev \
         ros-jazzy-eigen3-cmake-module ros-jazzy-ament-cmake-gtest \
     && rm -rf /var/lib/apt/lists/*
 
@@ -42,9 +42,11 @@ WORKDIR /ws
 RUN source /opt/ros/jazzy/setup.bash \
     && colcon build --packages-up-to px4_ros2_cpp --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 
+COPY libraries/mavlink /ws/libraries/mavlink
 COPY ros2/src/trajectory_mode_fw /ws/src/trajectory_mode_fw
 RUN source /opt/ros/jazzy/setup.bash \
-    && colcon build --packages-select trajectory_mode_fw --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && colcon build --packages-select trajectory_mode_fw \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release -DMAVLINK_INCLUDE_DIR=/ws/libraries \
     && colcon test --packages-select trajectory_mode_fw --ctest-args -R test_vtp_guidance \
     && colcon test-result --verbose
 

@@ -41,7 +41,9 @@ struct BridgeConfig {
 
 	// Spacing between TRAJECTORY_SETPOINT_* messages. PX4's TrajectoryManager reads the
 	// continuous_trajectory_setpoint uORB topic (queue depth 1), so bursts can drop points.
-	int upload_interval_ms{2};
+	// 5 ms: PX4 forwards at most one message per MAVLink loop (>= 1.5 ms) with a 2-message buffer, and the ROS 2
+	// fixed-wing mode receives the upload through that forwarding (2 ms loses points, 3 ms and 5 ms do not in SITL)
+	int upload_interval_ms{5};
 };
 
 /**
@@ -103,6 +105,8 @@ private:
 	void handleSetModeCommand(uint8_t sysid, const std::string &payload);
 	void handleCommandLong(uint8_t sysid, const std::string &payload);
 	void handleCommandInt(uint8_t sysid, const std::string &payload);
+	// Target component of a param_get/param_set: "component" in the JSON, else the autopilot
+	uint8_t paramTargetComponent(uint8_t sysid, const std::string &payload) const;
 	void handleParamGetCommand(uint8_t sysid, const std::string &payload);
 	void handleParamSetCommand(uint8_t sysid, const std::string &payload);
 	void serviceUploadQueue();

@@ -14,4 +14,4 @@ PARAMS_FILE=/ws/install/trajectory_mode_fw/share/trajectory_mode_fw/config/param
 
 exec ros2 run trajectory_mode_fw trajectory_mode_fw --ros-args \
   --params-file "$PARAMS_FILE" -p params_file:="$PARAMS_FILE" \
-  -p mqtt_host:="${MQTT_HOST:-127.0.0.1}" -p mqtt_port:="${MQTT_PORT:-1883}" -p sysid:="${MAV_SYSID:-1}" "$@"
+  -p sysid:="${MAV_SYSID:-1}" "$@"

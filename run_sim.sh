@@ -138,6 +138,14 @@ for _ in $(seq 1 90); do
 done
 if [ "$ready" = 1 ]; then echo " ready for takeoff"; else echo " still starting (see ./run_sim.sh logs)"; fi
 
+if [ "$VTOL" = 1 ]; then
+  # MAVLink instance for the ROS 2 mode (like a companion computer's): PX4 forwards the ground station's trajectory
+  # upload and TRAJ_* parameter messages to it (-f); the GCS bridge uses the SITL onboard link 14540/14580.
+  # Runtime configuration only, no PX4 change. Ports: ros2/src/trajectory_mode_fw/config/params.yaml
+  docker exec "$PX4_CONTAINER" "$PX4_BUILD_DIR/bin/px4-mavlink" start -u 14591 -o 14590 -r 4000000 -m minimal -f \
+    >/dev/null 2>&1 || echo "Could not start the MAVLink instance for the ROS 2 mode (see ./run_sim.sh logs)" >&2
+fi
+
 HEADLESS_NOTE=""
 [ "$SIH" = 0 ] && [ "$HEADLESS" = 1 ] && HEADLESS_NOTE=" (headless)"
 

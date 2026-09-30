@@ -36,15 +36,17 @@ PX4 SITL  <--MAVLink/UDP-->  mavlink_mqtt_bridge (C++)  <--MQTT-->  mosquitto  <
 | `uav/<sysid>/extended_sys_state` | vehicle → web | JSON `{vtol_state, landed_state}` from `EXTENDED_SYS_STATE` |
 | `uav/<sysid>/available_mode` | vehicle → web | JSON `{index, number_modes, custom_mode, standard_mode, properties, name}` from `AVAILABLE_MODES`, one per mode. The web app uses it to find the ROS 2 mode. |
 | `uav/<sysid>/available_modes_monitor` | vehicle → web | JSON `{seq}`. It changes when modes are added or removed, for example when the ROS 2 mode registers. |
-| `uav/<sysid>/ros_trajectory_status` | ROS 2 mode → web | JSON `{id, points, state: "loaded"}`, published when `trajectory_mode_fw` has loaded a trajectory |
-| `uav/<sysid>/statustext` | vehicle → web | JSON `{severity, text}` from `STATUSTEXT`, for example the reason arming was denied |
-| `uav/<sysid>/cmd/param_get` | web → vehicle | JSON `{"names": ["TRAJ_R_STAR", ...]}`. The bridge sends one `PARAM_REQUEST_READ` per name. |
-| `uav/<sysid>/cmd/param_set` | web → vehicle | JSON `{"name": "TRAJ_R_STAR", "value": 30}`. The bridge sends `PARAM_SET` (float parameters). |
-| `uav/<sysid>/param` | vehicle → web | JSON `{name, value, type, index, count}` from every `PARAM_VALUE` |
+| `uav/<sysid>/statustext` | vehicle → web | JSON `{severity, text, component}` from `STATUSTEXT`, for example the reason arming was denied |
+| `uav/<sysid>/cmd/param_get` | web → vehicle | JSON `{"names": ["TRAJ_R_STAR", ...], "component"?: n}`. The bridge sends one `PARAM_REQUEST_READ` per name, to the autopilot or to `component` (191 = the ROS 2 fixed-wing mode). |
+| `uav/<sysid>/cmd/param_set` | web → vehicle | JSON `{"name": "TRAJ_R_STAR", "value": 30, "component"?: n}`. The bridge sends `PARAM_SET` (float parameters). |
+| `uav/<sysid>/param` | vehicle → web | JSON `{name, value, type, index, count, component}` from every `PARAM_VALUE` |
+| `uav/<sysid>/named_value` | vehicle → web | JSON `{name, value, time_boot_ms, component}` from `NAMED_VALUE_FLOAT`, e.g. the ROS 2 mode's `TRAJ_STATE`, `TRAJ_R`, `TRAJ_IDX`, `TRAJ_N`, `TRAJ_A_M`, `TRAJ_ALONG` |
 | `uav/<sysid>/trajectory_status` | bridge → web | JSON `{id, state: "uploading"\|"done"\|"error", sent, total, error?}` |
 | `bridge/status` | bridge → web | JSON `{online}`. It is retained, and the MQTT last will sets it to offline. |
 
-Trajectory uploads are spaced 2 ms apart (`--upload-interval MS`). PX4's `TrajectoryManager` reads the `continuous_trajectory_setpoint` uORB topic, which has queue depth 1, so a burst could drop points.
+Trajectory uploads are spaced 5 ms apart (`--upload-interval MS`). PX4's `TrajectoryManager` reads the `continuous_trajectory_setpoint` uORB topic, which has queue depth 1, so a burst could drop points. For a VTOL, PX4 also forwards the upload to the ROS 2 mode; PX4 forwards at most one message per MAVLink loop with a 2-message buffer, and 2 ms lost points in SITL while 3 and 5 ms did not.
+
+The ROS 2 fixed-wing mode is a MAVLink component (sysid 1, compid 191) on its own PX4 MAVLink instance, so everything reaches it through PX4 like the internal mode: the same trajectory upload, `PARAM_*` addressed to compid 191, and its `STATUSTEXT`/`NAMED_VALUE_FLOAT` back. See [ros2/README.md](../ros2/README.md).
 
 When the bridge first sees a vehicle's heartbeat, it asks PX4 for `LOCAL_POSITION_NED` and `ATTITUDE` at 30 Hz with `MAV_CMD_SET_MESSAGE_INTERVAL`. Every second it sends its own GCS heartbeat (sysid 255).
 

@@ -7,6 +7,18 @@ export const PX4_SUB_MODE_AUTO_LOITER = 3; // "Hold"
 
 // Name the ROS 2 fixed-wing mode (ros2/src/trajectory_mode_fw) registers with
 export const ROS_TRAJECTORY_MODE_NAME = 'Trajectory';
+// MAVLink component of the ROS 2 fixed-wing mode (MAV_COMP_ID_ONBOARD_COMPUTER): serves the TRAJ_* parameters
+// and sends its guidance state as NAMED_VALUE_FLOAT
+export const ROS_MODE_COMPID = 191;
+const ROS_GUIDANCE_STATES = ['inactive', 'holding', 'tracking', 'acquiring', 'finished'];
+export const ROS_GUIDANCE_FIELDS = {
+  TRAJ_STATE: ['state', (v) => ROS_GUIDANCE_STATES[v] ?? 'inactive'],
+  TRAJ_N: ['points', (v) => v],
+  TRAJ_R: ['r', (v) => v],
+  TRAJ_IDX: ['index', (v) => v],
+  TRAJ_A_M: ['a_m', (v) => v],
+  TRAJ_ALONG: ['a_long', (v) => v],
+};
 
 const MAV_TYPES_VTOL = new Set([19, 20, 21, 22, 23, 24, 47]);
 export const MAV_VTOL_STATE = { UNDEFINED: 0, TRANSITION_TO_FW: 1, TRANSITION_TO_MC: 2, MC: 3, FW: 4 };

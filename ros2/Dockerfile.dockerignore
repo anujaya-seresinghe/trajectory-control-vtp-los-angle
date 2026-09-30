@@ -2,3 +2,4 @@
 !ros2/src
 !ros2/entrypoint.sh
 !PX4/msg
+!libraries/mavlink

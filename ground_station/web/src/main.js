@@ -90,6 +90,11 @@ function selectedVehicle() {
 // ---------------------------------------------------------------- views
 
 const views = { '2d': new View2D($('view-2d')), '3d': null };
+
+// ?debug: hooks for scripts/record_gcs_gifs.py (map geometry, selected vehicle, ROS 2 mode availability)
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__gcs = { view2d: views['2d'], selected: () => selectedVehicle(), rosMode: () => rosTrajectoryMode(selectedVehicle()) };
+}
 let activeName = '2d';
 let activeView = views['2d'];
 const followBox = $('follow');
@@ -560,7 +565,7 @@ const pendingParams = new Map(); // name -> { value, timer }
 let paramBatch = []; // results of the last Apply, shown together
 let paramsRequestedFor = null; // sysid whose values were last requested
 // Where the guidance parameters live: 'px4' (internal multicopter mode, TRAJ_* PX4 parameters over MAVLink)
-// or 'ros' (VTOL: the ROS 2 fixed-wing mode's parameters over MQTT, saved to its params.yaml)
+// or 'ros' (VTOL: the ROS 2 fixed-wing mode's parameters, MAVLink to its own component, saved to its params.yaml)
 let paramSource = 'px4';
 const paramSourceFor = (vehicle) => (isVtol(vehicle) ? 'ros' : 'px4');
 const paramStore = (vehicle) => (paramSource === 'ros' ? vehicle?.rosParams : vehicle?.params);
@@ -866,6 +871,7 @@ planEditor.addEventListener('submit', (ev) => {
     return fail('The UAV is not in Trajectory mode. Press Trajectory Flight Mode, then Finish again.');
   }
 
+  rosConfirmedId = null;
   if (!telemetry.sendTrajectory(vehicle.sysid, id, points)) return fail('Could not publish the trajectory.');
 
   views['2d'].setUploadedPath(points);
@@ -875,13 +881,16 @@ planEditor.addEventListener('submit', (ev) => {
   stopPlanning();
 });
 
+let rosConfirmedId = null; // last trajectory id the ROS 2 mode confirmed
 telemetry.addEventListener('trajectory-status', (ev) => {
   const { sysid, id, state, sent, total, error } = ev.detail;
-  // For a VTOL the ROS 2 mode reads the trajectory from MQTT and confirms it itself (below); the bridge's
-  // MAVLink upload to PX4 is not used by the fixed-wing mode
-  if (isVtol(telemetry.vehicles.get(sysid)) && state !== 'error') return;
+  // For a VTOL, PX4 forwards the same upload to the ROS 2 mode, which confirms it (below)
+  const vtol = isVtol(telemetry.vehicles.get(sysid));
+  if (vtol && state === 'done' && rosConfirmedId === id) return;
   if (state === 'error') {
     uploadStatus.textContent = `Trajectory ${id} rejected by the bridge: ${error}`;
+  } else if (state === 'done' && vtol) {
+    uploadStatus.textContent = `Trajectory ${id}: ${total} points sent, waiting for the ROS 2 mode to confirm…`;
   } else if (state === 'done') {
     uploadStatus.textContent =
       `Trajectory ${id} uploaded to system ${sysid}: INITIATE + ${total} UPLOAD messages ` +
@@ -893,6 +902,7 @@ telemetry.addEventListener('trajectory-status', (ev) => {
 
 telemetry.addEventListener('ros-trajectory-status', (ev) => {
   const { id, points, state } = ev.detail;
+  rosConfirmedId = id;
   uploadStatus.textContent =
     state === 'loaded'
       ? `Trajectory ${id} loaded by the ROS 2 mode (${points} points, ${SAMPLE_SPACING} m spacing, ${DEFAULT_SPEED} m/s).`
@@ -941,13 +951,20 @@ function updatePanel(v) {
   $('t-rate').textContent = v ? `${v.positionRateHz.toFixed(0)} Hz` : '—';
 
   // ROS 2 fixed-wing mode guidance (published at 5 Hz while the mode runs)
-  const g = v && now - v.rosGuidanceAt < 2000 ? v.rosGuidance : null;
-  const tracking = g?.state === 'tracking';
+  const g = v && now - v.rosGuidanceAt < 2500 ? v.rosGuidance : null;
+  // Acquiring: r is the distance to the point being flown to (the path start, or where it was lost)
+  const tracking = g?.state === 'tracking' || g?.state === 'acquiring';
   $('g-r').textContent = tracking && Number.isFinite(g.r) ? `${g.r.toFixed(1)} m` : '—';
   $('g-am').textContent = tracking ? fmt(g.a_m) : '—';
   $('g-along').textContent = tracking ? fmt(g.a_long) : '—';
   $('g-state').textContent = g
-    ? { tracking: 'Tracking', holding: 'Holding course (no target)', inactive: 'Mode inactive' }[g.state] ?? g.state
+    ? {
+        tracking: 'Tracking',
+        acquiring: 'Acquiring the path',
+        holding: 'Holding course (no target)',
+        finished: 'Finished, holding course',
+        inactive: 'Mode inactive',
+      }[g.state] ?? g.state
     : 'Mode inactive';
   $('g-index').textContent = tracking && g.points ? `${g.index} / ${g.points - 1}` : '—';
 

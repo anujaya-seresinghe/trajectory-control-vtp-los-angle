@@ -5,6 +5,7 @@
 //   VtpGuidance       -> PX4/src/modules/flight_mode_manager/tasks/Traj/FlightTaskTraj.cpp
 // The equations and the virtual target selection are kept identical to the PX4 code (float math).
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -41,6 +42,8 @@ public:
 	bool active() const { return !_points.empty(); }
 	uint8_t id() const { return _id; }
 	size_t size() const { return _points.size(); }
+	uint16_t currentIndex() const { return _current_wp_index; }
+	const TrajectoryPoint &point(size_t i) const { return _points[std::min(i, _points.size() - 1)]; } // requires active()
 
 	// TrajectoryManager::update() for one vehicle position/velocity sample
 	ManagerOutput update(Vec2 pos_vehicle, Vec2 vel_vehicle, float r_star, int search_window);

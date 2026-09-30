@@ -1,6 +1,8 @@
 #pragma once
 
 // External PX4 flight mode "Trajectory" for fixed-wing flight (VTOL in FW mode).
+// Talks to the ground station over MAVLink like the internal mode (see mavlink_link.hpp): trajectory upload,
+// TRAJ_* parameters, and the guidance state as NAMED_VALUE_FLOAT (TRAJ_STATE, TRAJ_R, TRAJ_IDX, ...).
 //
 // Runs the same virtual-target guidance as the PX4-internal Trajectory mode (TrajectoryManager +
 // FlightTaskTraj) and converts its outputs into fixed-wing lateral/longitudinal setpoints:
@@ -21,8 +23,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 
-#include "trajectory_mode_fw/mqtt_trajectory_source.hpp"
-#include "trajectory_mode_fw/vtp_guidance.hpp"
+#include "trajectory_mode_fw/mavlink_link.hpp"
+#include "trajectory_mode_fw/fw_controller.hpp"
 
 namespace trajectory_mode_fw
 {
@@ -45,17 +47,13 @@ public:
 	void updateSetpoint(float dt_s) override;
 
 private:
-	GuidanceParams readParams();
+	FwControllerParams readParams();
 	void declareParameters();
-	void handleMqttCommand(const std::string &command, const std::string &payload); // MQTT thread
-	void publishParam(const std::string &px4_name, const std::string &error = "");
 	void persistParameters(const std::vector<rclcpp::Parameter> &parameters);
 	void loadPendingTrajectory();
 	float equivalentAirspeedFor(float ground_speed_sp, float course) const;
 	void holdCourse(const char *reason);
-	// Guidance state for the web app (<prefix>/<sysid>/ros_guidance), at most every 200 ms unless forced
-	void publishGuidance(const char *state, const ManagerOutput *target, const GuidanceOutput *guidance,
-			     bool force = false);
+	void publishGuidance(); // 5 Hz timer: NAMED_VALUE_FLOAT for the ground station
 
 	rclcpp::Node &_node;
 
@@ -65,23 +63,27 @@ private:
 	std::shared_ptr<px4_ros2::VehicleStatus> _vehicle_status;
 	std::shared_ptr<px4_ros2::Subscription<px4_msgs::msg::Wind>> _wind;
 
-	std::unique_ptr<MqttTrajectorySource> _mqtt;
-	std::string _status_topic; // <prefix>/<sysid>/ros_trajectory_status
-	std::string _param_topic;  // <prefix>/<sysid>/ros_param
-	std::string _guidance_topic; // <prefix>/<sysid>/ros_guidance
+	std::unique_ptr<MavlinkLink> _mavlink;
+	rclcpp::TimerBase::SharedPtr _guidance_timer;
 	std::string _params_file;  // YAML that runtime parameter changes are written back to ("" = don't persist)
 	rclcpp::node_interfaces::PostSetParametersCallbackHandle::SharedPtr _post_set_handle;
 	rclcpp::Subscription<std_msgs::msg::String>::SharedPtr _trajectory_json_sub;
 	std::optional<Trajectory> _pending_ros; // from the ROS topic (executor thread only)
 
-	TrajectoryManager _manager;
+	FwTrajectoryController _controller; // acquisition + the internal mode's TrajectoryManager and guidance
 
 	float _altitude_hold_amsl{NAN}; // captured on activation
 	float _course_hold{NAN};        // used while there is no valid virtual target
 	float _speed_ref{NAN};          // ground speed reference driven by the internal a_long law
 	const char *_hold_reason{nullptr};
 	rclcpp::Time _last_log_time{0, 0, RCL_ROS_TIME};
-	rclcpp::Time _last_guidance_pub{0, 0, RCL_ROS_TIME};
+
+	// Latest guidance state, sent by publishGuidance() (executor thread only)
+	// TRAJ_STATE: 0 inactive, 1 holding course, 2 tracking, 3 acquiring the path, 4 finished
+	enum class GuidanceState : uint8_t { Inactive = 0, Holding = 1, Tracking = 2, Acquiring = 3, Finished = 4 };
+	GuidanceState _guidance_state{GuidanceState::Inactive};
+	FwControllerOutput _last_output{};
+	unsigned _guidance_ticks{0};
 };
 
 } // namespace trajectory_mode_fw

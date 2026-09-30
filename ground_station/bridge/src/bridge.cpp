@@ -450,8 +450,21 @@ void MavlinkMqttBridge::handleCommandInt(uint8_t sysid, const std::string &paylo
 	std::cout << "Sent COMMAND_INT " << command << " (x=" << x << " y=" << y << ") to system " << int(sysid) << std::endl;
 }
 
+uint8_t MavlinkMqttBridge::paramTargetComponent(uint8_t sysid, const std::string &payload) const
+{
+	// e.g. 191 for the ROS 2 fixed-wing Trajectory mode, which serves its own TRAJ_* parameters
+	long component = 0;
+
+	if (jsonInt(payload, "component", component) && component > 0 && component < 256) {
+		return static_cast<uint8_t>(component);
+	}
+
+	return _autopilot_compid[sysid];
+}
+
 void MavlinkMqttBridge::handleParamGetCommand(uint8_t sysid, const std::string &payload)
 {
+	const uint8_t component = paramTargetComponent(sysid, payload);
 	const size_t pos = jsonValuePos(payload, "names");
 	const size_t open = pos == std::string::npos ? pos : payload.find('[', pos);
 
@@ -471,7 +484,7 @@ void MavlinkMqttBridge::handleParamGetCommand(uint8_t sysid, const std::string &
 		mavlink_message_t msg;
 		// param_index -1: look the parameter up by name
 		mavlink_msg_param_request_read_pack_chan(_config.sysid, _config.compid, CHAN_UPLOAD, &msg,
-				sysid, _autopilot_compid[sysid], id, -1);
+				sysid, component, id, -1);
 		sendMavlink(msg);
 	}
 }
@@ -491,13 +504,15 @@ void MavlinkMqttBridge::handleParamSetCommand(uint8_t sysid, const std::string &
 
 	char id[17] {};
 	strncpy(id, names[0].c_str(), 16);
+	const uint8_t component = paramTargetComponent(sysid, payload);
 	mavlink_message_t msg;
-	// Float parameters only; PX4 answers with PARAM_VALUE carrying the value it actually stored
+	// Float parameters only; the component answers with PARAM_VALUE carrying the value it actually stored
 	mavlink_msg_param_set_pack_chan(_config.sysid, _config.compid, CHAN_UPLOAD, &msg,
-					sysid, _autopilot_compid[sysid], id, static_cast<float>(value), MAV_PARAM_TYPE_REAL32);
+					sysid, component, id, static_cast<float>(value), MAV_PARAM_TYPE_REAL32);
 	sendMavlink(msg);
 
-	std::cout << "Sent PARAM_SET " << id << " = " << value << " to system " << int(sysid) << std::endl;
+	std::cout << "Sent PARAM_SET " << id << " = " << value << " to system " << int(sysid) << " component "
+		  << int(component) << std::endl;
 }
 
 void MavlinkMqttBridge::handleSetModeCommand(uint8_t sysid, const std::string &payload)
@@ -774,7 +789,8 @@ void MavlinkMqttBridge::handleMavlinkMessage(const mavlink_message_t &msg)
 				}
 			}
 
-			snprintf(json, sizeof(json), R"({"severity":%u,"text":"%s"})", st.severity, escaped.c_str());
+			snprintf(json, sizeof(json), R"({"severity":%u,"text":"%s","component":%u})", st.severity, escaped.c_str(),
+				 msg.compid);
 			publish(vehicleTopic(msg.sysid, "statustext"), std::string(json));
 			break;
 		}
@@ -786,18 +802,35 @@ void MavlinkMqttBridge::handleMavlinkMessage(const mavlink_message_t &msg)
 			memcpy(id, pv.param_id, 16); // not NUL-terminated when the name is 16 chars
 
 			if (pv.param_type == MAV_PARAM_TYPE_REAL32) {
-				snprintf(json, sizeof(json), R"({"name":"%s","value":%.9g,"type":"float","index":%u,"count":%u})",
-					 id, static_cast<double>(pv.param_value), pv.param_index, pv.param_count);
+				snprintf(json, sizeof(json), R"({"name":"%s","value":%.9g,"type":"float","index":%u,"count":%u,"component":%u})",
+					 id, static_cast<double>(pv.param_value), pv.param_index, pv.param_count, msg.compid);
 
 			} else {
 				// PX4 encodes integer parameters bytewise in the float field
 				int32_t ivalue = 0;
 				memcpy(&ivalue, &pv.param_value, sizeof(ivalue));
-				snprintf(json, sizeof(json), R"({"name":"%s","value":%d,"type":"int","index":%u,"count":%u})",
-					 id, static_cast<int>(ivalue), pv.param_index, pv.param_count);
+				snprintf(json, sizeof(json), R"({"name":"%s","value":%d,"type":"int","index":%u,"count":%u,"component":%u})",
+					 id, static_cast<int>(ivalue), pv.param_index, pv.param_count, msg.compid);
 			}
 
 			publish(vehicleTopic(msg.sysid, "param"), std::string(json));
+			break;
+		}
+
+	case MAVLINK_MSG_ID_NAMED_VALUE_FLOAT: {
+			// e.g. the ROS 2 fixed-wing Trajectory mode's guidance state (TRAJ_R, TRAJ_IDX, ...)
+			mavlink_named_value_float_t nv;
+			mavlink_msg_named_value_float_decode(&msg, &nv);
+			char name[11] {};
+			memcpy(name, nv.name, 10); // not NUL-terminated when 10 chars long
+
+			if (!validParamName(name) || !std::isfinite(nv.value)) { // JSON-safe names only (A-Z, 0-9, _)
+				break;
+			}
+
+			snprintf(json, sizeof(json), R"({"name":"%s","value":%.7g,"time_boot_ms":%u,"component":%u})", name,
+				 static_cast<double>(nv.value), nv.time_boot_ms, msg.compid);
+			publish(vehicleTopic(msg.sysid, "named_value"), std::string(json));
 			break;
 		}
 
