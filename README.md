@@ -1,4 +1,4 @@
-Trajectory controller based on the approach presented in [Chen et al. (2019)](https://doi.org/10.1016/j.ast.2019.02.034) with the assumption that the virtual target is not moving independent of the UAV. 
+Trajectory controller based on the approach presented in [Chen et al. (2019)](https://doi.org/10.1016/j.ast.2019.02.034) with the assumption that the virtual target point is not moving independent of the UAV. 
 
 
 ![Overview](docs/img/overview1.gif)
@@ -23,6 +23,7 @@ $$
 \end{aligned}
 $$
 
+This is done due to the reason that the velocity of the VTP is assumed to be zero when the UAV is not actively tracking it which is a result of UAV being ahead of the VTP. 
 
 A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies how many waypoints the trajectory contains and TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
 
