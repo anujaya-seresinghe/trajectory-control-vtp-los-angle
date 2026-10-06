@@ -5,31 +5,21 @@ Trajectory controller based on the approach presented in [Chen et al. (2019)](ht
 ![Overview](docs/img/overview2.gif)
 
 The implementation uses a terminal non-singular sliding mode controller with lateral acceleration as the output with the added modification to LOS range rate mentioned in [Chen et al. (2019)](https://doi.org/10.1016/j.ast.2019.02.034)Ö
-\[
-v_{t,\mathrm{projection}}
-=
-v_t \cos\left(\lambda - \gamma_t\right)
-\]
+$$
+v_{t,\mathrm{projection}} = v_t \cos(\lambda - \gamma_t)
+$$
 
-\[
-v_{m,\mathrm{projection}}
-=
-v_m \cos\left(\lambda - \gamma_m\right)
-\]
+$$
+v_{m,\mathrm{projection}} = v_m \cos(\lambda - \gamma_m)
+$$
 
-\[
-\dot{r}
-=
+$$
+\dot{r} =
 \begin{cases}
-- v_m \cos\left(\lambda - \gamma_m\right),
-& \text{if } v_t \cos\left(\lambda - \gamma_t\right) < 0
-\\[6pt]
-v_t \cos\left(\lambda - \gamma_t\right)
--
-v_m \cos\left(\lambda - \gamma_m\right),
-& \text{otherwise}
+-v_m \cos(\lambda - \gamma_m), & \text{if } v_{t,\mathrm{projection}} < 0 \[6pt]
+v_t \cos(\lambda - \gamma_t) - v_m \cos(\lambda - \gamma_m), & \text{otherwise}
 \end{cases}
-\]
+$$
 
 
 PX4 flight mode is created for quadcopters since fixed wing versions do not accept acceleration setpoints. A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies how many waypoints the trajectory contains and TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
