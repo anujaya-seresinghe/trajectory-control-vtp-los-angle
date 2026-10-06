@@ -18,7 +18,8 @@ $$
 $$
 \dot{r} =
 \begin{cases}
--v_m \cos(\lambda - \gamma_m), & \text{if } v_{t,\mathrm{projection}} < 0 \[6pt]
+-v_m \cos(\lambda - \gamma_m), & \text{if } v_{t,\mathrm{projection}} < 0 
+\[6pt]
 v_t \cos(\lambda - \gamma_t) - v_m \cos(\lambda - \gamma_m), & \text{otherwise}
 \end{cases}
 $$
