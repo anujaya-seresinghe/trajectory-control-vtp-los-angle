@@ -17,12 +17,10 @@ $$
 
 $$
 \dot{r} =
-\left\{
-\begin{array}{ll}
--v_m \cos(\lambda - \gamma_m), & \text{if } v_{t,\mathrm{projection}} < 0 \\
-v_t \cos(\lambda - \gamma_t) - v_m \cos(\lambda - \gamma_m), & \text{otherwise}
-\end{array}
-\right.
+\begin{aligned}
+&-v_m \cos(\lambda - \gamma_m), && \text{if } v_{t,\mathrm{projection}} < 0 \\
+&v_t \cos(\lambda - \gamma_t) - v_m \cos(\lambda - \gamma_m), && \text{otherwise}
+\end{aligned}
 $$
 
 
