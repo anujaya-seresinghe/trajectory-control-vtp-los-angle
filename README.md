@@ -4,7 +4,9 @@ Trajectory controller based on the approach presented in [Chen et al. (2019)](ht
 ![Overview](docs/img/overview1.gif)
 ![Overview](docs/img/overview2.gif)
 
-The implementation uses a terminal non-singular sliding mode controller with lateral acceleration as the output with the added modification to LOS range rate mentioned in [Chen et al. (2019)](https://doi.org/10.1016/j.ast.2019.02.034)Ö
+The implementation uses a terminal non-singular sliding mode controller with lateral acceleration as the output with the added modification to LOS range rate mentioned in [Chen et al. (2019)](https://doi.org/10.1016/j.ast.2019.02.034)
+
+
 $$
 v_{t,\mathrm{projection}} = v_t \cos(\lambda - \gamma_t)
 $$
