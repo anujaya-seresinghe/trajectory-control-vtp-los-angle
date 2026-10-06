@@ -24,7 +24,7 @@ v_t \cos(\lambda - \gamma_t) - v_m \cos(\lambda - \gamma_m), & \text{otherwise}
 $$
 
 
-PX4 flight mode is created for quadcopters since fixed wing versions do not accept acceleration setpoints. A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies how many waypoints the trajectory contains and TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
+A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies how many waypoints the trajectory contains and TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
 
 Each waypoint contains: 
 - index
@@ -37,7 +37,7 @@ Each waypoint contains:
 - timestamp 
 
 ## Multicopter Architecture
-Trajectory manager is a PX4 module running with the trajectory flight mode to receive incoming trajectory setpoints and determine the virtual target point based on the position of the UAV. This is implemented as a separate module to reduce the load on the flight mode itself which performs tasks related to the sliding mode controller.
+An internal PX4 flight mode is created for quadcopters in order to reduce the hardware effort needed to quicky prototype in the absence of a companion computer. Trajectory manager is a PX4 module running with the trajectory flight mode to receive incoming trajectory setpoints and determine the virtual target point based on the position of the UAV. This is implemented as a separate module to reduce the load on the flight mode itself which performs tasks related to the sliding mode controller.
 
 ![Architecture](docs/img/architecture.png)
 
