@@ -26,7 +26,7 @@ $$
 
 ![Projection of vt and vm](docs/img/vtp_angles.png)
 
-
+This means that, if the velocity vector of the UAV indicates that the UAV is moving away from the VTP, the VTP is assumed to stationary. 
 
 This is done due to the reason that the velocity of the VTP is assumed to be zero when the UAV is not actively tracking it which is a result of UAV being ahead of the VTP. 
 
