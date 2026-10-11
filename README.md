@@ -23,6 +23,11 @@ $$
 \end{aligned}
 $$
 
+
+![Projection of vt and vm](docs/img/vtp_angles.png)
+
+
+
 This is done due to the reason that the velocity of the VTP is assumed to be zero when the UAV is not actively tracking it which is a result of UAV being ahead of the VTP. 
 
 A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies the ID of the trajectory and how many waypoints it contains. Afterwards, TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
