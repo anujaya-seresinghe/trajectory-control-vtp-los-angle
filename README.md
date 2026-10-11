@@ -25,7 +25,7 @@ $$
 
 This is done due to the reason that the velocity of the VTP is assumed to be zero when the UAV is not actively tracking it which is a result of UAV being ahead of the VTP. 
 
-A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies how many waypoints the trajectory contains and TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
+A MAVLink library is created to send waypoints. It starts by initiating the trajectory with the message TRAJECTORY_SETPOINT_INITIATE which specifies the ID of the trajectory and how many waypoints it contains. Afterwards, TRAJECTORY_SETPOINT_UPLOAD is used to send each waypoit.
 
 Each waypoint contains: 
 - index
@@ -36,6 +36,9 @@ Each waypoint contains:
 - magnitude of laeral acceleration
 - magnitude of jerk
 - timestamp 
+
+![MAVLink message flow](docs/img/mavlink_messages.png)
+
 
 ## Multicopter Architecture
 An internal PX4 flight mode is created for quadcopters in order to reduce the hardware effort needed. This enables quick prototyping in the absence of a companion computer that is normally required to implement an external flight mode. Trajectory manager is a PX4 module running with the trajectory flight mode to receive incoming trajectory setpoints and determine the virtual target point based on the position of the UAV. This is implemented as a separate module to reduce the load on the flight mode itself which performs tasks related to the sliding mode controller.
