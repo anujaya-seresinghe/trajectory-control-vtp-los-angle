@@ -4,13 +4,13 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="QgMku4CWClDb7up4wDV0-1" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#003300;" value="GCS" vertex="1">
+        <mxCell id="QgMku4CWClDb7up4wDV0-1" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#003300;strokeColor=#99FF33;" value="GCS" vertex="1">
           <mxGeometry height="280" width="100" x="140" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="QgMku4CWClDb7up4wDV0-2" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#003300;" value="PX4" vertex="1">
+        <mxCell id="QgMku4CWClDb7up4wDV0-2" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};fillColor=#003300;strokeColor=#99FF33;" value="PX4" vertex="1">
           <mxGeometry height="280" width="100" x="440" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="QgMku4CWClDb7up4wDV0-3" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" value="">
+        <mxCell id="QgMku4CWClDb7up4wDV0-3" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#009999;" value="">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
             <mxPoint x="190" y="180" as="sourcePoint" />
             <mxPoint x="489.5" y="180" as="targetPoint" />
@@ -21,7 +21,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="QgMku4CWClDb7up4wDV0-5" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" value="c">
+        <mxCell id="QgMku4CWClDb7up4wDV0-5" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#009999;" value="c">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
             <mxPoint x="190" y="220" as="sourcePoint" />
             <mxPoint x="489.5" y="220" as="targetPoint" />
@@ -32,7 +32,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="QgMku4CWClDb7up4wDV0-7" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" value="c">
+        <mxCell id="QgMku4CWClDb7up4wDV0-7" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#009999;" value="c">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
             <mxPoint x="190" y="250" as="sourcePoint" />
             <mxPoint x="489.5" y="250" as="targetPoint" />
@@ -43,7 +43,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="QgMku4CWClDb7up4wDV0-10" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" value="c">
+        <mxCell id="QgMku4CWClDb7up4wDV0-10" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#009999;" value="c">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
             <mxPoint x="190" y="340" as="sourcePoint" />
             <mxPoint x="489.5" y="340" as="targetPoint" />
