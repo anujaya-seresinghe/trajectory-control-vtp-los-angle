@@ -43,6 +43,15 @@ Each waypoint contains:
 
 ![MAVLink message flow](docs/img/mavlink_messages.png)
 
+# Controller
+As mentioned, a TSMC controller is used here with the sliding surface:
+$$
+s = x_1 + \frac{1}{\beta}\, x_2^{\alpha}
+$$
+
+with α affecting the curvature of the sliding surface and β the curvature of the sliding surface. 
+
+![Sliding surface](docs/img/sliding_surface.png)
 
 ## Multicopter Architecture
 An internal PX4 flight mode is created for quadcopters in order to reduce the hardware effort needed. This enables quick prototyping in the absence of a companion computer that is normally required to implement an external flight mode. Trajectory manager is a PX4 module running with the trajectory flight mode to receive incoming trajectory setpoints and determine the virtual target point based on the position of the UAV. This is implemented as a separate module to reduce the load on the flight mode itself which performs tasks related to the sliding mode controller.
