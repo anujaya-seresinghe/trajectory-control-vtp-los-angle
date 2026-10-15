@@ -49,7 +49,6 @@ for ax, alpha in zip(axes, ALPHAS):
     legend.get_frame().set_linewidth(1.5)
 
 axes[0].set_ylabel(r"$x_2 = \dot\lambda - \dot\lambda_d$  [rad/s]")
-fig.suptitle(r"Sliding surface  $s = x_1 + \frac{1}{\beta}\,x_2^{\,\alpha} = 0$", fontsize=15, y=0.98)
-fig.tight_layout(rect=(0, 0, 1, 0.94))
+fig.tight_layout()
 fig.savefig(OUT, dpi=150)
 print(OUT)

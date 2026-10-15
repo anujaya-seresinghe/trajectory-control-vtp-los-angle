@@ -45,6 +45,7 @@ Each waypoint contains:
 
 # Controller
 As mentioned, a TSMC controller is used here with the sliding surface:
+
 $$
 s = x_1 + \frac{1}{\beta}\, x_2^{\alpha}
 $$
