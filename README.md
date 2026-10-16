@@ -47,7 +47,7 @@ Each waypoint contains:
 As mentioned, a TSMC controller is used to control the lateral acceleration with the sliding surface:
 
 $$
-s = x_1 + \frac{1}{\beta}\, x_2^{\alpha}
+s = x_1 + \frac{1}{\beta}\ x_2^{\alpha}
 $$
 
 with α affecting the curvature of the sliding surface and β the curvature of the sliding surface. 
